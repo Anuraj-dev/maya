@@ -1,0 +1,48 @@
+{
+  "name": "maya-overlay",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Maya's cinematic overlay — animated eyes + live task queue. Electron frameless overlay.",
+  "main": "electron-dist/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "NODE_ENV=development concurrently \"vite\" \"sleep 2 && electron .\"",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.electron.json",
+    "build:electron": "npm run build && tsc -p tsconfig.electron.json && electron-builder",
+    "electron": "NODE_ENV=development electron .",
+    "preview": "vite preview"
+  },
+  "build": {
+    "appId": "dev.maya.overlay",
+    "productName": "Maya",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron-dist/**",
+      "package.json"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    }
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/electron": "^1.6.12",
+    "@types/node": "^25.9.3",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^10.0.3",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  }
+}

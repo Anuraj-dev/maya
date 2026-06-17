@@ -1,0 +1,757 @@
+/* ============================================================================
+   Maya overlay — cinematic HUD. Dark, neon, slightly-robotic feminine.
+   Type: Share Tech Mono (display) + Fira Code (UI). Palette shifts per state.
+   ========================================================================== */
+
+:root {
+  --bg-0: #04060a;
+  --bg-1: #080c14;
+  --ink: #e7f6ff;
+  --ink-dim: #8aa2b8;
+  --panel: rgba(10, 16, 26, 0.72);
+  --hairline: rgba(120, 200, 255, 0.14);
+
+  /* state palette — overridden per [data-state] below */
+  --iris: #4fd6ff;
+  --glow: #2bd4ff;
+  --accent: #6fe9ff;
+  --pupil-scale: 1;
+  --blink: 6s;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--bg-0);
+  color: var(--ink);
+  font-family: "Fira Code", ui-monospace, monospace;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Widget mode: Electron transparent window — no background at all */
+body.widget-mode,
+body.widget-mode #root {
+  background: transparent !important;
+}
+
+/* ---- per-state palette + behaviour ------------------------------------- */
+.stage[data-state="idle"]      { --iris:#4fd6ff; --glow:#2bd4ff; --accent:#6fe9ff; --pupil-scale:1;    --blink:5.5s; }
+.stage[data-state="listening"] { --iris:#62f0ff; --glow:#39e6ff; --accent:#9af6ff; --pupil-scale:1.28; --blink:8s; }
+.stage[data-state="thinking"]  { --iris:#b388ff; --glow:#8a5cff; --accent:#cbb0ff; --pupil-scale:0.96; --blink:7s; }
+.stage[data-state="acting"]    { --iris:#5effc6; --glow:#1fe3a6; --accent:#9bffe2; --pupil-scale:0.8; --blink:9s; }
+.stage[data-state="speaking"]  { --iris:#56e3ff; --glow:#2bd4ff; --accent:#8fefff; --pupil-scale:1.05; --blink:6s; }
+.stage[data-state="awaiting"]  { --iris:#ff7ad0; --glow:#ff4fbf; --accent:#ffb0e6; --pupil-scale:1.1;  --blink:4.2s; }
+.stage[data-state="error"]     { --iris:#ff6a6a; --glow:#ff3b3b; --accent:#ff9d9d; --pupil-scale:0.7;  --blink:3s; }
+
+/* ---- stage + backdrop -------------------------------------------------- */
+.stage {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 90% at 50% 18%, color-mix(in srgb, var(--glow) 12%, transparent), transparent 60%),
+    radial-gradient(80% 60% at 50% 120%, color-mix(in srgb, var(--glow) 8%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0));
+  transition: background 900ms ease;
+}
+
+.grid-bg {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--glow) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--glow) 7%, transparent) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(120% 80% at 50% 35%, #000 30%, transparent 78%);
+  opacity: 0.5;
+  animation: drift 26s linear infinite;
+}
+@keyframes drift { to { background-position: 46px 92px; } }
+
+.vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(130% 100% at 50% 40%, transparent 55%, rgba(0,0,0,0.6) 100%);
+}
+
+/* ---- layout ------------------------------------------------------------ */
+.hud {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 320px);
+  gap: 24px;
+  padding: 40px clamp(24px, 5vw, 72px);
+  min-height: 0;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  text-align: center;
+}
+
+/* ============================ EYES ====================================== */
+.eyes {
+  position: relative;
+  width: min(56vw, 560px);
+  height: 210px;
+  display: grid;
+  place-items: center;
+  animation: breathe 7s ease-in-out infinite;
+}
+@keyframes breathe { 50% { transform: translateY(-3px) scale(1.008); } }
+
+.aura {
+  position: absolute; width: 80%; height: 160%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 28%, transparent), transparent 72%);
+  filter: blur(22px);
+  opacity: 0.5;
+  transition: background 900ms ease;
+}
+
+/* Beautiful almond spacing */
+.eye-row { display: flex; gap: clamp(44px, 9vw, 88px); z-index: 2; }
+
+/*
+  Slender almond: ~2.9:1 width-to-height — evokes real eye proportions.
+  Outer corners tilted DOWN (positive left / negative right) → calm, warm, not arrogant.
+*/
+.eye__socket {
+  position: relative;
+  width: 156px; height: 54px;
+  overflow: hidden;
+  border-radius: 50% 50% 50% 50% / 58% 58% 42% 42%;
+  background: radial-gradient(55% 85% at 50% 40%, #0b1622, #04080e 85%);
+  box-shadow:
+    inset 0 0 28px rgba(0,0,0,0.9),
+    0 0 1.5px color-mix(in srgb, var(--accent) 50%, transparent),
+    0 2px 18px color-mix(in srgb, var(--glow) 12%, transparent);
+}
+/* Outer corners DOWN — calm, soft look */
+.eye--left  .eye__socket { transform: rotate(3deg); }
+.eye--right .eye__socket { transform: rotate(-3deg); }
+
+.eye__iris {
+  position: absolute; inset: 0;
+  margin: auto;
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 40%,
+      color-mix(in srgb, var(--accent) 80%, white 20%) 0%,
+      var(--iris) 30%,
+      color-mix(in srgb, var(--iris) 50%, #02060c) 72%,
+      #020509 100%);
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--glow) 65%, transparent),
+    0 0 38px color-mix(in srgb, var(--glow) 35%, transparent),
+    inset 0 0 10px color-mix(in srgb, var(--glow) 45%, transparent);
+  transition: background 800ms ease, box-shadow 800ms ease;
+  /* Dreamy downward drift — soft and gentle */
+  animation: gaze 9s ease-in-out infinite;
+}
+
+.eye__ring {
+  position: absolute; inset: 7px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  opacity: 0.6;
+  animation: spin 11s linear infinite;
+  mask-image: conic-gradient(#000 0 60%, transparent 60% 100%);
+}
+
+.eye__pupil {
+  position: absolute; inset: 0; margin: auto;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 46% 46%, #010408 55%, #081018);
+  box-shadow:
+    0 0 6px rgba(0,0,0,0.9),
+    0 0 12px color-mix(in srgb, var(--glow) 30%, transparent);
+  transform: scale(var(--pupil-scale));
+  transition: transform 700ms cubic-bezier(.34,1.48,.64,1);
+}
+
+/* Two glints: main + tiny secondary — depth and life */
+.eye__glint {
+  position: absolute; top: 16px; left: 17px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 38%, rgba(255,255,255,0.95), transparent 68%);
+  opacity: 0.9; filter: blur(0.2px);
+}
+.eye__glint::after {
+  content: "";
+  position: absolute; top: 14px; left: 10px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+}
+
+/* eyelids — meet in the middle on blink */
+.eye__lid {
+  position: absolute; left: -5%; width: 110%; height: 58%;
+  background: linear-gradient(var(--dir, 180deg), #050a12, #08111e 65%, #0b1623);
+  z-index: 3;
+}
+.eye__lid--top    { top: 0;    border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); animation: blink-top var(--blink) ease-in-out infinite; }
+.eye__lid--bottom { bottom: 0; --dir: 0deg; border-top: 1px solid color-mix(in srgb, var(--accent) 18%, transparent); animation: blink-bottom var(--blink) ease-in-out infinite; }
+@keyframes blink-top    { 0%,93%,100% { transform: translateY(-101%);} 96.5% { transform: translateY(0);} }
+@keyframes blink-bottom { 0%,93%,100% { transform: translateY(101%);}  96.5% { transform: translateY(0);} }
+
+/*
+  Lash: soft natural curl along the top edge, not a sharp outer flick.
+  Positioned to follow the lid's top arc — subtle and feminine, not aggressive.
+*/
+.eye__lash {
+  position: absolute; top: -1px; width: 52px; height: 14px;
+  border-top: 1.5px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  border-radius: 40% 40% 0 0;
+  z-index: 4; opacity: 0.7;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--glow) 50%, transparent));
+}
+.eye--left  .eye__lash { left: 20px; transform: rotate(-1deg); }
+.eye--right .eye__lash { right: 20px; transform: rotate(1deg); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Dreamy slow drift: slightly down then back — calm, restful */
+@keyframes gaze {
+  0%,100% { transform: translate(0,0); }
+  30%     { transform: translate(-2px,2px); }
+  70%     { transform: translate(2px,1px); }
+}
+
+/* thinking: gentle, flowing — not jittery */
+.eyes[data-state="thinking"] .eye__iris { animation: gaze-think 4.8s ease-in-out infinite; }
+@keyframes gaze-think {
+  0%,100% { transform: translate(-4px,-3px); }
+  40%     { transform: translate(5px,-2px); }
+  75%     { transform: translate(2px,3px); }
+}
+/* acting: crisp scan ring */
+.eyes[data-state="acting"] .eye__ring { animation-duration: 2.2s; opacity: 0.9; }
+/* awaiting: soft upward glance — hopeful, not demanding */
+.eyes[data-state="awaiting"] .eye__iris { animation: gaze-await 3s ease-in-out infinite; }
+@keyframes gaze-await {
+  0%,100% { transform: translateY(-4px); }
+  50%     { transform: translate(1px,-5px); }
+}
+/* error: subtle twitch — less chaotic */
+.eyes[data-state="error"] .eye-row { animation: twitch 0.6s steps(2) infinite; }
+@keyframes twitch { 50% { transform: translateX(1.5px); } }
+
+/* ---- sonar (listening) ------------------------------------------------- */
+.sonar { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity 400ms; z-index: 1; }
+.eyes[data-state="listening"] .sonar { opacity: 1; }
+.sonar span {
+  position: absolute; width: 150px; height: 150px; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  animation: sonar 2.6s ease-out infinite;
+}
+.sonar span:nth-child(2) { animation-delay: 0.86s; }
+.sonar span:nth-child(3) { animation-delay: 1.72s; }
+@keyframes sonar { 0% { transform: scale(0.6); opacity: 0.8; } 100% { transform: scale(2.6); opacity: 0; } }
+
+/* ---- motes (thinking) -------------------------------------------------- */
+.motes { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity 400ms; z-index: 1; }
+.eyes[data-state="thinking"] .motes { opacity: 1; }
+.motes span {
+  position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--glow);
+  transform-origin: -90px center;
+  animation: orbit 5s linear infinite;
+  animation-delay: calc(var(--i) * -0.83s);
+  opacity: 0.85;
+}
+@keyframes orbit { from { transform: rotate(0) translateX(90px);} to { transform: rotate(360deg) translateX(90px);} }
+
+/* ---- voice bars (speaking) -------------------------------------------- */
+.voice { position: absolute; bottom: 30px; display: flex; gap: 6px; align-items: flex-end; height: 30px; opacity: 0; transition: opacity 300ms; z-index: 2; }
+.voice[data-on="true"] { opacity: 1; }
+.voice span {
+  width: 5px; height: 8px; border-radius: 3px;
+  background: linear-gradient(var(--accent), var(--iris));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--glow) 70%, transparent);
+  animation: eq 0.9s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.08s);
+}
+@keyframes eq { 0%,100% { height: 7px; } 50% { height: 28px; } }
+
+/* ============================ STATUS / CAPTION ========================= */
+.status {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: "Share Tech Mono", monospace;
+  letter-spacing: 0.32em; text-transform: uppercase; font-size: 13px;
+  color: var(--accent);
+}
+.status__pip { width: 8px; height: 8px; border-radius: 50%; background: var(--iris); box-shadow: 0 0 10px var(--glow); animation: pip 1.8s ease-in-out infinite; }
+@keyframes pip { 50% { opacity: 0.35; } }
+
+.caption {
+  max-width: 60ch; line-height: 1.6; font-size: clamp(16px, 2.1vw, 22px);
+  color: var(--ink);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--glow) 25%, transparent);
+  animation: rise 500ms ease both;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---- confirmation (Approve/Deny) -------------------------------------- */
+.confirm {
+  margin-top: 6px; width: min(440px, 84vw);
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--glow) 45%, var(--hairline));
+  border-radius: 16px; padding: 18px 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset;
+  animation: rise 360ms ease both;
+}
+.confirm__tag {
+  display: inline-block; font-family: "Share Tech Mono", monospace;
+  font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--iris); border: 1px solid color-mix(in srgb, var(--iris) 40%, transparent);
+  border-radius: 999px; padding: 3px 10px; margin-bottom: 10px;
+}
+.confirm__prompt { font-size: 15px; color: var(--ink); margin-bottom: 16px; }
+.confirm__btns { display: flex; gap: 10px; justify-content: flex-end; }
+
+.btn {
+  cursor: pointer; font-family: "Fira Code", monospace; font-weight: 500;
+  font-size: 14px; padding: 10px 22px; min-height: 44px; border-radius: 10px;
+  border: 1px solid transparent; transition: background 180ms, border-color 180ms, color 180ms, box-shadow 180ms;
+}
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn--deny { background: transparent; color: var(--ink-dim); border-color: var(--hairline); }
+.btn--deny:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 40%, transparent); }
+.btn--approve {
+  background: color-mix(in srgb, var(--glow) 22%, transparent);
+  color: var(--ink); border-color: color-mix(in srgb, var(--glow) 60%, transparent);
+}
+.btn--approve:hover { background: color-mix(in srgb, var(--glow) 36%, transparent); box-shadow: 0 0 22px color-mix(in srgb, var(--glow) 40%, transparent); }
+
+/* ============================ TASK QUEUE =============================== */
+.queue {
+  align-self: start;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: 16px; padding: 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.4);
+  max-height: 100%; overflow: auto;
+}
+.queue__head {
+  display: flex; align-items: center; gap: 8px;
+  font-family: "Share Tech Mono", monospace; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 12px; color: var(--ink-dim); margin-bottom: 14px;
+}
+.queue__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--iris); box-shadow: 0 0 8px var(--glow); }
+.queue__empty { color: var(--ink-dim); font-size: 13px; opacity: 0.7; }
+.queue__list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+.task {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 12px; border-radius: 11px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--hairline);
+  font-size: 13.5px;
+  animation: rise 320ms ease both;
+}
+.task__icon { flex: none; }
+.task__icon--spin { animation: spin 0.9s linear infinite; }
+.task__label { color: var(--ink); }
+.task__detail { color: var(--ink-dim); }
+
+.task[data-status="pending"] { color: var(--ink-dim); opacity: 0.75; }
+.task[data-status="running"] { border-color: color-mix(in srgb, var(--glow) 45%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--glow) 16%, transparent); }
+.task[data-status="running"] .task__icon { color: var(--iris); }
+.task[data-status="done"]    .task__icon { color: #4be39b; }
+.task[data-status="failed"]  { border-color: color-mix(in srgb, #ff5a5a 45%, transparent); }
+.task[data-status="failed"]  .task__icon { color: #ff6a6a; }
+.task[data-status="failed"]  .task__label { color: #ffb3b3; }
+
+/* ============================ DEV BAR ================================= */
+.devbar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px clamp(16px, 4vw, 40px);
+  border-top: 1px solid var(--hairline);
+  background: rgba(4, 7, 12, 0.7);
+  backdrop-filter: blur(8px);
+}
+.devbar__brand { display: inline-flex; align-items: center; gap: 8px; font-family: "Share Tech Mono", monospace; letter-spacing: 0.24em; font-size: 12px; color: var(--ink-dim); }
+.devbar__live { width: 8px; height: 8px; border-radius: 50%; background: #3a4452; transition: background 300ms, box-shadow 300ms; }
+.devbar__live[data-on="true"] { background: #4be39b; box-shadow: 0 0 10px #4be39b; animation: pip 1.6s ease-in-out infinite; }
+
+.chip:disabled { opacity: 0.35; cursor: not-allowed; }
+.chip:disabled:hover { color: var(--ink-dim); border-color: var(--hairline); background: rgba(255,255,255,0.03); }
+.devbar__states, .devbar__actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.devbar__actions { margin-left: auto; }
+
+.chip {
+  cursor: pointer; font-family: "Fira Code", monospace; font-size: 12.5px;
+  color: var(--ink-dim); background: rgba(255,255,255,0.03);
+  border: 1px solid var(--hairline); border-radius: 8px;
+  padding: 7px 12px; min-height: 36px;
+  transition: color 160ms, border-color 160ms, background 160ms;
+}
+.chip:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip[data-active="true"] { color: var(--bg-0); background: var(--iris); border-color: var(--iris); box-shadow: 0 0 16px color-mix(in srgb, var(--glow) 45%, transparent); }
+.chip--primary { color: var(--accent); border-color: color-mix(in srgb, var(--glow) 50%, transparent); }
+.chip--primary:hover { background: color-mix(in srgb, var(--glow) 18%, transparent); }
+
+/* ---- responsive -------------------------------------------------------- */
+@media (max-width: 760px) {
+  .hud { grid-template-columns: 1fr; }
+  .queue { max-height: 30vh; }
+}
+
+/* ---- accessibility ----------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 120ms !important; }
+  .eye__lid--top { transform: translateY(-101%); }
+  .eye__lid--bottom { transform: translateY(101%); }
+}
+
+/* ============================================================================
+   WIDGET — compact floating Electron overlay (top-right corner)
+   272 × 134px base window · transparent · draggable
+   ========================================================================== */
+
+/* Vivid, saturated palettes — more alive than the full HUD */
+.w-card[data-state="idle"]      { --iris:#38d9ff; --glow:#00c8ff; --accent:#7eeeff; --pupil-scale:1;    --blink:5.5s; }
+.w-card[data-state="listening"] { --iris:#00f0ff; --glow:#00dfff; --accent:#b0f8ff; --pupil-scale:1.3;  --blink:9s; }
+.w-card[data-state="thinking"]  { --iris:#c084fc; --glow:#a855f7; --accent:#e0aeff; --pupil-scale:0.9;  --blink:7s; }
+.w-card[data-state="acting"]    { --iris:#34ffc0; --glow:#00e5a0; --accent:#80ffda; --pupil-scale:0.75; --blink:10s; }
+.w-card[data-state="speaking"]  { --iris:#38d9ff; --glow:#00c8ff; --accent:#9ff0ff; --pupil-scale:1.08; --blink:6s; }
+.w-card[data-state="awaiting"]  { --iris:#f472b6; --glow:#ec4899; --accent:#fbb6d8; --pupil-scale:1.15; --blink:4s; }
+.w-card[data-state="error"]     { --iris:#f87171; --glow:#ef4444; --accent:#fca5a5; --pupil-scale:0.65; --blink:2.8s; }
+
+/* --- card shell ---------------------------------------------------------- */
+.w-card {
+  position: absolute;
+  inset: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 20px 13px;
+  background:
+    radial-gradient(90% 70% at 50% 0%,
+      color-mix(in srgb, var(--glow) 14%, transparent), transparent 65%),
+    rgba(4, 8, 16, 0.93);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, rgba(255,255,255,0.05));
+  border-radius: 22px;
+  backdrop-filter: blur(32px) saturate(160%);
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,0.05) inset,
+    0 10px 50px rgba(0,0,0,0.75),
+    0 0 40px color-mix(in srgb, var(--glow) 18%, transparent),
+    0 0 80px color-mix(in srgb, var(--glow) 8%, transparent);
+  transition: border-color 600ms ease, box-shadow 600ms ease, background 600ms ease;
+  cursor: grab;
+  user-select: none;
+}
+.w-card:active { cursor: grabbing; }
+
+/* pulsing outer glow — makes the whole card feel alive */
+.w-card::before {
+  content: "";
+  position: absolute; inset: -1px;
+  border-radius: 23px;
+  background: transparent;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--glow) 28%, transparent);
+  animation: card-pulse 3s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes card-pulse {
+  0%,100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
+/* ambient glow disc — rises behind the eyes */
+.w-aura {
+  position: absolute;
+  top: -4px; left: 50%; transform: translateX(-50%);
+  width: 220px; height: 80px;
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--glow) 50%, transparent), transparent 75%);
+  filter: blur(22px);
+  opacity: 0.45;
+  pointer-events: none;
+  transition: background 600ms ease;
+  animation: aura-breathe 4s ease-in-out infinite;
+}
+@keyframes aura-breathe {
+  0%,100% { opacity: 0.35; transform: translateX(-50%) scaleY(0.9); }
+  50%      { opacity: 0.55; transform: translateX(-50%) scaleY(1.1); }
+}
+
+/* --- eye row ------------------------------------------------------------- */
+.w-eyes {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  animation: breathe 5s ease-in-out infinite;
+}
+
+/* sonar rings while listening */
+.w-sonar {
+  position: absolute; inset: -20px;
+  display: grid; place-items: center;
+  opacity: 0; transition: opacity 350ms;
+  pointer-events: none;
+}
+.w-eyes[data-state="listening"] .w-sonar { opacity: 1; }
+.w-sonar span {
+  position: absolute;
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  animation: sonar 2.4s ease-out infinite;
+}
+.w-sonar span:nth-child(2) { animation-delay: 0.8s; }
+.w-sonar span:nth-child(3) { animation-delay: 1.6s; }
+
+/* --- individual eye ------------------------------------------------------ */
+.w-eye__socket {
+  position: relative;
+  width: 84px; height: 30px;   /* 2.8:1 almond */
+  overflow: hidden;
+  border-radius: 50% 50% 50% 50% / 56% 56% 44% 44%;
+  background: radial-gradient(50% 90% at 50% 35%, #0c1826, #030710 90%);
+  box-shadow:
+    inset 0 0 24px rgba(0,0,0,0.95),
+    0 0 2px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 3px 16px color-mix(in srgb, var(--glow) 18%, transparent);
+  transition: box-shadow 600ms ease;
+}
+/* outer corners angled DOWN = calm, warm expression */
+.w-eye--left  .w-eye__socket { transform: rotate(3deg); }
+.w-eye--right .w-eye__socket { transform: rotate(-3deg); }
+
+/* iris — the star of the show, large enough to be clipped to an almond */
+.w-eye__iris {
+  position: absolute; inset: 0; margin: auto;
+  width: 40px; height: 40px;  /* bigger than socket height: clips to almond shape */
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 48% 38%,
+      rgba(255,255,255,0.25) 0%,
+      color-mix(in srgb, var(--accent) 90%, white) 8%,
+      var(--iris) 28%,
+      color-mix(in srgb, var(--iris) 60%, #010510) 62%,
+      #010510 100%);
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--glow) 90%, transparent),
+    0 0 28px color-mix(in srgb, var(--glow) 55%, transparent),
+    0 0 55px color-mix(in srgb, var(--glow) 28%, transparent),
+    inset 0 0 10px color-mix(in srgb, var(--glow) 60%, transparent);
+  transition: background 600ms ease, box-shadow 600ms ease;
+  animation: gaze 8s ease-in-out infinite;
+}
+/* iris shimmer — the slow rotation of the pattern makes it feel alive */
+.w-eye__iris::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--accent) 20%, transparent),
+    transparent 30%,
+    color-mix(in srgb, var(--accent) 12%, transparent) 55%,
+    transparent 80%
+  );
+  animation: spin 6s linear infinite;
+  opacity: 0.6;
+}
+
+.w-eyes[data-state="thinking"] .w-eye__iris { animation: gaze-think 4.2s ease-in-out infinite; }
+.w-eyes[data-state="awaiting"] .w-eye__iris { animation: gaze-await 3s ease-in-out infinite; }
+.w-eyes[data-state="error"] .w-eye-row { animation: twitch 0.55s steps(2) infinite; }
+
+/* arc ring — dashed halo inside the iris */
+.w-eye__ring {
+  position: absolute; inset: 5px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  opacity: 0.65;
+  animation: spin 9s linear infinite;
+  mask-image: conic-gradient(#000 0 45%, transparent 45% 60%, #000 60% 100%);
+}
+.w-eyes[data-state="acting"] .w-eye__ring {
+  animation-duration: 1.8s;
+  opacity: 1;
+  border-color: var(--accent);
+}
+
+/* pupil */
+.w-eye__pupil {
+  position: absolute; inset: 0; margin: auto;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 38%, #000408 50%, #06101c);
+  box-shadow:
+    0 0 5px rgba(0,0,0,1),
+    0 0 10px color-mix(in srgb, var(--glow) 35%, transparent);
+  transform: scale(var(--pupil-scale));
+  transition: transform 600ms cubic-bezier(.34,1.5,.64,1);
+}
+
+/* glints — two light reflections give the eye depth and life */
+.w-eye__glint {
+  position: absolute; top: 8px; left: 9px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 32%,
+    rgba(255,255,255,1) 0%, rgba(255,255,255,0.5) 40%, transparent 70%);
+  opacity: 0.92;
+  z-index: 2;
+}
+.w-eye__glint::after {
+  content: "";
+  position: absolute; top: 12px; left: 8px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.45);
+}
+
+/* eyelids */
+.w-eye__lid {
+  position: absolute; left: -5%; width: 110%; height: 52%;
+  background: linear-gradient(var(--lid-dir, 180deg), #040912, #070f1d 60%, #0a1626);
+  z-index: 3;
+}
+.w-eye__lid--top {
+  top: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  animation: blink-top var(--blink) ease-in-out infinite;
+}
+.w-eye__lid--bottom {
+  bottom: 0;
+  --lid-dir: 0deg;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  animation: blink-bottom var(--blink) ease-in-out infinite;
+}
+
+/* --- emotion label ------------------------------------------------------- */
+.w-emotion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+}
+/* glyph: bold, unique per state, colored and glowing */
+.w-emotion__glyph {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 14px;
+  color: var(--iris);
+  filter: drop-shadow(0 0 5px var(--glow)) drop-shadow(0 0 10px var(--glow));
+  animation: pip 2.2s ease-in-out infinite;
+  flex-shrink: 0;
+  line-height: 1;
+}
+/* label: clean upright mono, wide tracking */
+.w-emotion__label {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 85%, white 10%);
+  transition: color 500ms ease;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--glow) 50%, transparent);
+}
+
+/* --- inline caption (short text, ≤ 48 chars) ----------------------------- */
+.w-caption {
+  font-family: "Fira Code", monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  text-align: center;
+  max-width: 224px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: rise 380ms ease both;
+  opacity: 0.78;
+}
+
+/* current action line — what Maya is doing right now (always visible while acting) */
+.w-activity {
+  font-family: "Fira Code", monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--glow, #8be9fd);
+  text-align: center;
+  max-width: 224px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: rise 380ms ease both;
+  letter-spacing: 0.02em;
+}
+
+/* --- speech bubble (long responses, > 48 chars) -------------------------- */
+.w-bubble {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0; right: 0;
+  background:
+    radial-gradient(100% 50% at 50% 0%,
+      color-mix(in srgb, var(--glow) 10%, transparent), transparent 60%),
+    rgba(4, 9, 18, 0.95);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,0.06));
+  border-radius: 18px;
+  padding: 12px 14px 13px;
+  backdrop-filter: blur(28px) saturate(150%);
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,0.05) inset,
+    0 10px 40px rgba(0,0,0,0.7),
+    0 0 24px color-mix(in srgb, var(--glow) 12%, transparent);
+  animation: bubble-in 300ms cubic-bezier(.22,1,.36,1) both;
+  cursor: auto;
+}
+
+/* arrow tail */
+.w-bubble__tail {
+  position: absolute;
+  top: -7px; left: 26px;
+  width: 0; height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 7px solid color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,0.06));
+}
+.w-bubble__tail::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: -6px;
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid rgba(4, 9, 18, 0.95);
+}
+
+/* bubble text — comfortable, readable, supports formatted output */
+.w-bubble__text {
+  font-family: "Fira Code", monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--ink);
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--glow) 35%, transparent) transparent;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(-5px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
