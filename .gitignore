@@ -1,0 +1,9 @@
+node_modules/
+overlay/node_modules/
+overlay/dist/
+overlay/electron-dist/
+overlay/release/
+dist/
+.env
+.env.local
+*.local
