@@ -1,7 +1,7 @@
 /**
  * Daemon orchestrator. Owns the long-running process and the conversation LOOP:
  *
- *   wake word ("Maya, …")  →  run the task  →  "Activating hyprvox" + open mic  →
+ *   wake word ("Maya, …")  →  run the task  →  overlay "You can speak now" + open mic  →
  *   hear the next task     →  run it        →  … keep going until you say "stop".
  *
  * So you give one wake-word command to start, then just keep talking — Maya re-opens the mic
@@ -17,6 +17,7 @@ import { loadConfig, MAYA_DIR, type Config } from "../config/index.ts";
 import { OverlayBridge } from "../overlay/bridge.ts";
 import { createLiveSession } from "../overlay/session.ts";
 import { runOnce } from "../agent/loop.ts";
+import { closeBrowser } from "../tools/browser.ts";
 import { createTts } from "../voice/tts.ts";
 import { startClipboardWatcher, parseTranscript, isStopCommand, type ClipboardWatcher } from "../input/clipboard.ts";
 
@@ -78,33 +79,27 @@ async function hyprvox(cmd: "start" | "stop" | "toggle"): Promise<void> {
   }
 }
 
-/** Launch the Electron overlay (top-right oval). Auto-builds the renderer on first run. */
+/** Launch the GTK overlay (top-right HUD). Uses WebKit2GTK + layer-shell. */
 async function launchOverlay(): Promise<ReturnType<typeof Bun.spawn> | undefined> {
   const overlayDir = join(import.meta.dir, "..", "..", "overlay");
-  const electron = join(overlayDir, "node_modules", ".bin", "electron");
-  const indexHtml = join(overlayDir, "dist", "index.html");
+  const hostScript = join(overlayDir, "host.py");
 
-  if (!existsSync(electron)) {
-    log(`⚠️  overlay disabled: electron not installed. Run:  cd ${overlayDir} && bun install`);
+  if (!existsSync(hostScript)) {
+    log(`⚠️  overlay disabled: host.py not found at ${hostScript}`);
     return undefined;
   }
-  if (!existsSync(indexHtml)) {
-    log("🔧 building overlay renderer (first run)…");
-    try {
-      const b = Bun.spawn(["bun", "run", "build"], { cwd: overlayDir, stdout: "inherit", stderr: "inherit" });
-      await b.exited;
-    } catch { /* fall through to the existence check */ }
-  }
-  if (!existsSync(indexHtml)) {
-    log(`⚠️  overlay disabled: renderer build missing. Run:  cd ${overlayDir} && bun run build`);
+
+  const python3 = await Bun.which("python3");
+  if (!python3) {
+    log("⚠️  overlay disabled: python3 not found on PATH");
     return undefined;
   }
 
   try {
     const fd = openSync(OVERLAY_LOG_PATH, "a");
-    const proc = Bun.spawn([electron, "."], {
+    const proc = Bun.spawn([python3, hostScript], {
       cwd: overlayDir,
-      env: { ...process.env, NODE_ENV: "production" },
+      env: { ...process.env },
       stdout: fd,
       stderr: fd,
     });
@@ -145,6 +140,7 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
   let windowTimer: ReturnType<typeof setTimeout> | undefined;
   let currentAbort: { aborted: boolean } | null = null;
   let stopRequested = false;
+  let micActive = false; // true while we hold an open hyprvox toggle (recording in progress)
 
   const settleTranscript = (text: string) => {
     if (!transcriptResolver) return;
@@ -152,21 +148,26 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
     transcriptResolver = null;
     if (recordTimer) clearTimeout(recordTimer);
     if (windowTimer) clearTimeout(windowTimer);
+    micActive = false;
     resolve(text);
   };
 
-  // Open hyprvox and resolve with the next transcript the watcher delivers. hyprvox auto-stops
-  // on silence; recordTimer force-stops if that misfires; windowTimer gives up (returns "").
+  // Open hyprvox and resolve with the next transcript the watcher delivers.
+  // hyprvox is pure PTT: "toggle" starts recording; "toggle" again stops + transcribes.
+  // recordTimer force-stops after maxListenMs; windowTimer gives up if transcript never arrives.
   const captureNext = async (): Promise<string> => {
-    await hyprvox("start");
     if (buffered !== null) {
       const b = buffered;
       buffered = null;
-      return b; // user spoke before the mic was fully armed — don't lose it
+      return b; // user spoke before the mic was armed — don't lose it
     }
+    micActive = true;
+    await hyprvox("toggle"); // start recording
     return new Promise<string>((resolve) => {
       transcriptResolver = resolve;
-      recordTimer = setTimeout(() => void hyprvox("stop"), config.input.maxListenMs);
+      recordTimer = setTimeout(() => {
+        if (micActive) { micActive = false; void hyprvox("toggle"); } // stop recording
+      }, config.input.maxListenMs);
       windowTimer = setTimeout(() => settleTranscript(""), config.input.maxListenMs + config.input.followUpWindowMs);
     });
   };
@@ -179,7 +180,7 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
     stopRequested = true;
     if (currentAbort) currentAbort.aborted = true;
     tts.stop();
-    void hyprvox("stop");
+    if (micActive) { micActive = false; void hyprvox("toggle"); } // stop recording if open
     settleTranscript(""); // unblock any pending listen
     mode = "idle";
     session.set("idle", "");
@@ -202,6 +203,7 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
           deps: { voiceAsk: session.voiceAsk },
           abort: currentAbort,
           config,
+          keepBrowser: true, // daemon owns browser lifecycle; closed in shutdown
         });
       } catch (err) {
         log(`task error: ${err instanceof Error ? err.message : String(err)}`);
@@ -210,11 +212,10 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
       currentAbort = null;
       if (stopRequested) break;
 
-      // Hands-free follow-up: announce, open the mic, wait for the next task.
+      // Hands-free follow-up: show "You can speak now" on the overlay, open mic silently.
       mode = "listening";
       buffered = null;
-      session.set("listening", "Listening… say your next task, or say stop.");
-      await tts.speak("Activating hyprvox.");
+      session.set("listening", "You can speak now");
       log("🎙  listening for next task…");
       const next = (await captureNext()).trim();
       if (stopRequested) break;
@@ -235,6 +236,10 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
         await tts.speak("Okay, stopping.");
         break;
       }
+
+      // Brief "got it" acknowledgement on the overlay before the next task spins up.
+      log(`👂 follow-up: "${stripped}"`);
+      session.set("thinking", `Got it — "${stripped.length > 50 ? stripped.slice(0, 50) + "…" : stripped}"`);
       command = stripped;
     }
 
@@ -269,12 +274,13 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
 
     // idle: require the wake word.
     const parsed = parseTranscript(text, { awaiting: false, config });
-    if (parsed.kind !== "command") return; // plain dictation into other apps — ignore
+    if (parsed.kind !== "command") return;
     if (isStopCommand(parsed.text)) return; // nothing running to stop
     void converse(parsed.text);
   });
 
   session.set("idle", "");
+  log(`🎙  ready — press your hyprvox key, say "${config.input.wakeWord}, <task>", then press it again to transcribe.`);
 
   // --- lifecycle ------------------------------------------------------------
   await new Promise<void>((resolve) => {
@@ -282,7 +288,7 @@ export async function startDaemon(opts: StartOptions): Promise<void> {
       log("👋 shutting down.");
       try { watcher.stop(); } catch {}
       try { tts.stop(); } catch {}
-      void hyprvox("stop");
+      void closeBrowser(); // close browser kept alive across tasks
       try { bridge.stop(); } catch {}
       try { overlayProc?.kill(); } catch {}
       try { unlinkSync(DAEMON_PID_PATH); } catch {}

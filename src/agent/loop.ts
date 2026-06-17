@@ -40,6 +40,11 @@ export async function runOnce(
     abort?: { aborted: boolean };
     /** Reuse the caller's config instead of reloading (daemon owns one config). */
     config?: Config;
+    /**
+     * When true the browser is left open after the task (daemon manages lifecycle across tasks).
+     * Default false: browser is closed so the one-shot `maya ask` CLI doesn't leave Chromium open.
+     */
+    keepBrowser?: boolean;
   } = {},
 ): Promise<void> {
   const config = opts.config ?? (await loadConfig());
@@ -87,7 +92,7 @@ export async function runOnce(
     await sink.error(err instanceof Error ? err.message : String(err));
     process.exitCode = 1;
   } finally {
-    await closeBrowser();
+    if (!opts.keepBrowser) await closeBrowser();
   }
 }
 
