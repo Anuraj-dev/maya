@@ -260,17 +260,70 @@ export function browserTools(config: Config): Record<string, MayaTool> {
       },
     },
 
+    browser_scroll: {
+      spec: {
+        name: "browser_scroll",
+        description:
+          "Scroll the page or a specific element. " +
+          "Use direction 'down'/'up' to scroll by pixels, or 'top'/'bottom' to jump to page edges. " +
+          "Optionally target a CSS selector to scroll a specific scrollable container.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            direction: {
+              type: "string",
+              enum: ["down", "up", "top", "bottom"],
+              description: "'down' or 'up' scrolls by `pixels` (default 500). 'top'/'bottom' jumps to page edge.",
+            },
+            pixels: {
+              type: "number",
+              description: "How many pixels to scroll (for 'up'/'down'). Default: 500.",
+            },
+            selector: {
+              type: "string",
+              description: "CSS selector of a scrollable container. Omit to scroll the page.",
+            },
+          },
+          required: ["direction"],
+        },
+      },
+      execute: async (input) => {
+        const p = await getPage(config);
+        const dir = String(input.direction);
+        const px = typeof input.pixels === "number" ? input.pixels : 500;
+        const sel = typeof input.selector === "string" ? input.selector : null;
+
+        if (dir === "top" || dir === "bottom") {
+          const script = sel
+            ? `const el = document.querySelector(${JSON.stringify(sel)}); if (el) el.scrollTop = ${dir === "top" ? "0" : "el.scrollHeight"};`
+            : `window.scrollTo(0, ${dir === "top" ? "0" : "document.body.scrollHeight"});`;
+          await p.evaluate(script);
+          return `Scrolled to ${dir}${sel ? ` of "${sel}"` : ""}.`;
+        }
+
+        const delta = dir === "down" ? px : -px;
+        const script = sel
+          ? `const el = document.querySelector(${JSON.stringify(sel)}); if (el) el.scrollBy(0, ${delta});`
+          : `window.scrollBy(0, ${delta});`;
+        await p.evaluate(script);
+        await p.waitForTimeout(300);
+        return `Scrolled ${dir} by ${px}px${sel ? ` in "${sel}"` : ""}.`;
+      },
+    },
+
     browser_screenshot: {
+      returnsImage: true,
       spec: {
         name: "browser_screenshot",
-        description: "Capture a screenshot of the current page. Returns the saved file path.",
+        description: "Capture a screenshot of the current page so you can SEE it. The image is returned to you directly.",
         inputSchema: { type: "object", properties: {} },
       },
       execute: async () => {
         const p = await getPage(config);
         const path = `/tmp/maya-shot-${Date.now()}.png`;
         await p.screenshot({ path, fullPage: false });
-        return `Screenshot saved to ${path}`;
+        // Bare path: the MCP server reads it back as an image content block (returnsImage).
+        return path;
       },
     },
   };
