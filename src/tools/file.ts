@@ -9,6 +9,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { MayaTool } from "./index.ts";
+import { trashFile, snapshotFile } from "../safety/audit.ts";
 
 const READ_MAX_CHARS = 10_000;
 
@@ -48,8 +49,8 @@ export const fileTools: Record<string, MayaTool> = {
       name: "file_write",
       description:
         "Write text content to a file. If the file already exists, set overwrite:true to replace it " +
-        "(this will trigger a confirmation prompt). Creates parent directories as needed. " +
-        "Use for creating new files, config snippets, notes, scripts, etc.",
+        "(the previous contents are snapshotted first, so an overwrite is reversible via the undo tool). " +
+        "Creates parent directories as needed. Use for creating new files, config snippets, notes, scripts, etc.",
       inputSchema: {
         type: "object",
         properties: {
@@ -72,12 +73,16 @@ export const fileTools: Record<string, MayaTool> = {
 
       const exists = existsSync(p);
       if (exists && !overwrite) {
-        return `File already exists: ${p}. Pass overwrite:true to replace it (requires confirmation).`;
+        return `File already exists: ${p}. Pass overwrite:true to replace it.`;
       }
 
       mkdirSync(dirname(p), { recursive: true });
+      // Snapshot the old contents before clobbering so the overwrite is reversible via `undo`.
+      const snap = exists ? await snapshotFile(p) : null;
       await Bun.write(p, content);
-      return exists ? `Overwrote ${p} (${content.length} chars).` : `Created ${p} (${content.length} chars).`;
+      return exists
+        ? `Overwrote ${p} (${content.length} chars). Previous version saved${snap ? "" : " (no snapshot)"} — reversible with the undo tool.`
+        : `Created ${p} (${content.length} chars).`;
     },
   },
 
@@ -85,8 +90,8 @@ export const fileTools: Record<string, MayaTool> = {
     spec: {
       name: "file_delete",
       description:
-        "Delete a file. This is irreversible and ALWAYS requires the user's confirmation. " +
-        "Cannot delete directories — use shell_run with 'rm -r' for that (also requires confirmation).",
+        "Delete a file. The file is moved to Maya's trash (not unlinked), so it can be restored " +
+        "with the undo tool. Cannot delete directories — use shell_run with 'rm -r' for that.",
       inputSchema: {
         type: "object",
         properties: {
@@ -99,8 +104,9 @@ export const fileTools: Record<string, MayaTool> = {
       const p = resolvePath(String(input.path ?? ""));
       if (!p) return "No path provided.";
       if (!existsSync(p)) return `File not found: ${p}`;
-      await (await import("node:fs/promises")).unlink(p);
-      return `Deleted ${p}.`;
+      // Move to trash rather than unlink — recoverable via the undo tool.
+      const trashed = await trashFile(p);
+      return `Moved ${p} to trash (${trashed}). Reversible with the undo tool.`;
     },
   },
 };

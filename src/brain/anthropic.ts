@@ -71,8 +71,9 @@ export class AnthropicBrain implements Brain {
       messages: this.messages,
     };
 
-    if (brain.thinking) (params as Record<string, unknown>).thinking = brain.thinking;
-    if (brain.effort) (params as Record<string, unknown>).output_config = { effort: brain.effort };
+    const extra = params as unknown as Record<string, unknown>;
+    if (brain.thinking) extra.thinking = brain.thinking;
+    if (brain.effort) extra.output_config = { effort: brain.effort };
 
     const response = await this.client.messages.create(params);
     this.messages.push({ role: "assistant", content: response.content });

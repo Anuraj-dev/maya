@@ -64,4 +64,24 @@ program
     await runOnce(parts.join(" "), { provider: opts.provider });
   });
 
+program
+  .command("mcp")
+  .description(
+    "Start Maya as an MCP stdio server — connects to Claude Code or any MCP-compatible agent. " +
+    "Add to ~/.claude/mcp.json or run `maya setup` to register automatically.",
+  )
+  .action(async () => {
+    const { startMcpServer } = await import("./mcp/server.ts");
+    await startMcpServer();
+  });
+
+program
+  .command("setup")
+  .description("Register Maya as an MCP server with your coding agent (Claude Code and/or Codex)")
+  .argument("[client]", "which agent to register: claude | codex (default: all detected)")
+  .action(async (client?: string) => {
+    const { setupMcp } = await import("./mcp/setup.ts");
+    await setupMcp(client);
+  });
+
 program.parseAsync();

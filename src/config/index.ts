@@ -2,8 +2,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
-/** All Maya runtime state lives here (mirrors hyprvox's ~/.config/hypr/vox). */
-export const MAYA_DIR = join(homedir(), ".config", "maya");
+/**
+ * All Maya runtime state lives here (mirrors hyprvox's ~/.config/hypr/vox).
+ * Override with MAYA_DIR for tests or a second profile.
+ */
+export const MAYA_DIR = process.env.MAYA_DIR || join(homedir(), ".config", "maya");
 export const CONFIG_PATH = join(MAYA_DIR, "config.json");
 export const SOCKET_PATH = join(MAYA_DIR, "daemon.sock");
 export const PID_PATH = join(MAYA_DIR, "overlay.pid");

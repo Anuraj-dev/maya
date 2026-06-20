@@ -2,12 +2,28 @@
 
 > A female Jarvis-like voice agent: listens, asks, executes (browser + desktop), and reports back in a melodic, slightly-robotic voice — with animated eyes and a live task queue.
 
-Status: **Phases 0–4 built** (setup → headless brain → boundaries → voice out → voice in).
-`maya start` runs the always-on daemon: clipboard wake-word, agent loop, spoken replies,
-hands-free follow-ups (voice_ask → hyprvox), and the live overlay oval. Remaining: Phase 6
-(persistent memory + vault + Opus escalation) and overlay polish.
-Build plan: `~/.claude/plans/validated-popping-elephant.md`.
+Status: **Phases 0–6 built**, now pivoting to an **MCP-first** architecture.
 Companion tool (unmodified): hyprvox at `~/Anuraj-Dev/hyprvox`.
+
+> **Architecture update (current direction).** Maya is the **body**; the **brain is an external
+> coding agent** (Claude Code / Codex) over MCP — not an in-process model. `maya mcp` exposes
+> the full tool set plus `listen` (open mic, return the next spoken command), `speak`, and
+> `undo`. The intended loop is `listen → reason → act → speak → listen`. The in-process brains
+> (`brain/anthropic|gemini|ollama`, `agent/effort`, `agent/loop`) and the dual overlay are
+> **legacy**, kept working for the standalone daemon but slated to be cut as the MCP path lands.
+>
+> **Safety is now audit + undo, not a confirmation gate.** Every MCP tool call is logged to
+> `~/.config/maya/audit/log.jsonl`; `file_delete` moves to trash and `file_write` snapshots the
+> old contents, both reversible via the `undo` tool. The only hard gate left is **payments**
+> (`confirm:true`). The old broad floor (`safety/floor.ts`) still backs the legacy daemon path.
+>
+> **hyprvox is pure push-to-talk** (toggle to start, toggle to stop — no silence auto-stop in
+> toggle mode, verified). `listen` opens the mic for a hands-free start and force-stops at
+> `maxListenMs`; it does not rely on endpointing.
+>
+> **Model policy is budget-bound:** the legacy daemon uses Haiku for everything and Sonnet (low
+> effort) only for explicit coding — no Opus, no adaptive thinking. (The bullets below describing
+> Sonnet-default + Opus escalation + auto-effort were the original plan, not the shipped code.)
 
 ---
 

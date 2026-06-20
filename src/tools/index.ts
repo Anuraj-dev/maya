@@ -6,6 +6,9 @@ import { fileTools } from "./file.ts";
 import { appTools } from "./app.ts";
 import { vaultTools } from "./vault.ts";
 import { memoryTools } from "./memory.ts";
+import { sensingTools } from "./sensing.ts";
+import { proactiveTools, type ProactiveDeps } from "./proactive.ts";
+import { processTools, type ProcessDeps } from "./process.ts";
 
 /**
  * Dedicated, typed tool registry. Each tool is a gateable, action-specific hook
@@ -25,12 +28,22 @@ export interface ToolSpec {
 export interface MayaTool<I = Record<string, unknown>> {
   spec: ToolSpec;
   execute: (input: I) => Promise<string>;
+  /**
+   * When true, a SUCCESSFUL execute() returns a filesystem path to an image. Front-ends that
+   * can carry images (the MCP server) read the file and return it as an image content block so
+   * the brain can actually SEE it; text-only callers just get the path. Error results (which
+   * aren't valid paths) fall back to text either way.
+   */
+  returnsImage?: boolean;
 }
 
-/** Capabilities the daemon injects into tools (voice asking, etc.). Empty for headless runs. */
-export type ToolDeps = VoiceDeps;
+/** Capabilities the daemon injects into tools (voice asking, reminders, processes, etc.). Empty for headless runs. */
+export type ToolDeps = VoiceDeps & ProactiveDeps & ProcessDeps;
 
-/** Build the active tool set for a run. voice_ask is included only when an asker is wired. */
+/**
+ * Build the active tool set for a run. Dependency-gated tools (voice_ask, remind/reminders_*)
+ * are included only when their capability is wired in.
+ */
 export function buildTools(config: Config, deps: ToolDeps = {}): Record<string, MayaTool> {
   return {
     ...browserTools(config),
@@ -40,6 +53,9 @@ export function buildTools(config: Config, deps: ToolDeps = {}): Record<string, 
     ...appTools,
     ...vaultTools,
     ...memoryTools,
+    ...sensingTools,
+    ...proactiveTools(deps),
+    ...processTools(deps),
   };
 }
 
