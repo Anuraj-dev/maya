@@ -20,8 +20,11 @@ export const shellTools: Record<string, MayaTool> = {
       description:
         "Run a shell command and return its combined stdout+stderr output. " +
         "Use for tasks that need the terminal: listing files, running scripts, checking status, etc. " +
-        "Commands that use sudo, install packages, or recursively delete will automatically " +
-        "require user confirmation before running. Keep commands concise and avoid interactive prompts.",
+        "Runs as Raja with his full privileges and IS logged to the audit trail. Most commands run " +
+        "without confirmation — only genuinely unrecoverable ones (wiping home/root, raw disk writes, " +
+        "mkfs, fork bombs, piping a download into a shell) are blocked and need confirm:true after you " +
+        "clear it with Raja. Note: shell effects are NOT undoable, so think before destructive commands. " +
+        "Keep commands concise and avoid interactive prompts.",
       inputSchema: {
         type: "object",
         properties: {
@@ -32,6 +35,12 @@ export const shellTools: Record<string, MayaTool> = {
           workdir: {
             type: "string",
             description: "Optional working directory. Defaults to the user's home directory.",
+          },
+          confirm: {
+            type: "boolean",
+            description:
+              "Set true ONLY after Raja has approved a command flagged catastrophic (wiping home/root, " +
+              "raw disk write, mkfs, fork bomb, curl|sh). Ignored for ordinary commands.",
           },
         },
         required: ["command"],

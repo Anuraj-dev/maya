@@ -14,9 +14,15 @@
  * Everything else runs, but is logged and (where it touches files) recoverable.
  */
 import { existsSync, mkdirSync } from "node:fs";
-import { copyFile, rename, readFile, writeFile } from "node:fs/promises";
+import { copyFile, rename, readFile, writeFile, appendFile, readdir, stat, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { MAYA_DIR } from "../config/index.ts";
+import { redactSecrets, redactString } from "./redact.ts";
+import { selectExpired, boundUndoStack } from "./retention.ts";
+
+/** Retention defaults (W4.5). Tunable later via config; conservative so undo stays useful. */
+const RETENTION_DAYS = 14;
+const MAX_UNDO_DEPTH = 100;
 
 const AUDIT_DIR = join(MAYA_DIR, "audit");
 const AUDIT_LOG = join(AUDIT_DIR, "log.jsonl");
@@ -44,7 +50,13 @@ export interface AuditEntry {
   summary: string;
 }
 
-/** Append one line to the audit log. Best-effort: auditing must never break a tool call. */
+/**
+ * Append one line to the audit log. Best-effort: auditing must never break a tool call.
+ *
+ * Production hardening (W4.3/W4.4): writes are a true O_APPEND so concurrent reminder firings and
+ * tool calls can't clobber each other's lines, and both the input and the summary are run through
+ * the secret redactor so the audit log never becomes a plaintext credential dump.
+ */
 export async function logAction(
   tool: string,
   input: Record<string, unknown>,
@@ -53,9 +65,14 @@ export async function logAction(
 ): Promise<void> {
   try {
     ensureDir(AUDIT_DIR);
-    const entry: AuditEntry = { ts: new Date().toISOString(), tool, input, ok, summary: summary.slice(0, 500) };
-    const prev = existsSync(AUDIT_LOG) ? await readFile(AUDIT_LOG, "utf8") : "";
-    await writeFile(AUDIT_LOG, prev + JSON.stringify(entry) + "\n");
+    const entry: AuditEntry = {
+      ts: new Date().toISOString(),
+      tool,
+      input: redactSecrets(input),
+      ok,
+      summary: redactString(summary).slice(0, 500),
+    };
+    await appendFile(AUDIT_LOG, JSON.stringify(entry) + "\n");
   } catch {
     /* never let auditing throw into a tool call */
   }
@@ -137,5 +154,63 @@ export async function undoLast(): Promise<string> {
     return `Reverted ${entry.originalPath} to its previous contents.`;
   } catch (err) {
     return `Undo failed: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Retention (W4.5) — keep trash/snapshots and the undo stack from growing forever.
+// ---------------------------------------------------------------------------
+
+/**
+ * Garbage-collect old trash/snapshot files and bound the undo stack to its most-recent entries,
+ * deleting the backing files of any evicted entries. Best-effort; runs at startup (and on a timer).
+ */
+export async function runRetention(
+  opts: { maxAgeDays?: number; maxUndoDepth?: number } = {},
+): Promise<void> {
+  const maxAgeDays = opts.maxAgeDays ?? RETENTION_DAYS;
+  const maxUndoDepth = opts.maxUndoDepth ?? MAX_UNDO_DEPTH;
+  const now = Date.now();
+
+  // 1. GC trash + snapshot files older than the window.
+  for (const dir of [TRASH_DIR, SNAP_DIR]) {
+    if (!existsSync(dir)) continue;
+    try {
+      const names = await readdir(dir);
+      const files = await Promise.all(
+        names.map(async (name) => {
+          const p = join(dir, name);
+          return { name: p, mtimeMs: (await stat(p)).mtimeMs };
+        }),
+      );
+      for (const path of selectExpired(files, now, maxAgeDays)) {
+        try {
+          await unlink(path);
+        } catch {
+          /* file already gone — fine */
+        }
+      }
+    } catch {
+      /* a GC failure must never break startup */
+    }
+  }
+
+  // 2. Bound the undo stack; delete the backing files of evicted entries.
+  try {
+    const stack = await loadUndo();
+    const { kept, evicted } = boundUndoStack(stack, maxUndoDepth);
+    if (evicted.length > 0) {
+      for (const e of evicted) {
+        const backing = e.kind === "restore-trashed" ? e.trashedPath : e.snapshotPath;
+        try {
+          await unlink(backing);
+        } catch {
+          /* already gone */
+        }
+      }
+      await saveUndo(kept);
+    }
+  } catch {
+    /* best-effort */
   }
 }

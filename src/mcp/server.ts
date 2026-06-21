@@ -30,7 +30,8 @@ import { join } from "node:path";
 import { loadConfig, MAYA_DIR } from "../config/index.ts";
 import { buildTools, type MayaTool } from "../tools/index.ts";
 import { classify } from "../safety/floor.ts";
-import { logAction, undoLast } from "../safety/audit.ts";
+import { classifyCatastrophic } from "../safety/catastrophic.ts";
+import { logAction, undoLast, runRetention } from "../safety/audit.ts";
 import { createTts } from "../voice/tts.ts";
 import { listenOnce } from "../voice/listen.ts";
 import { sendNotification } from "../tools/proactive.ts";
@@ -57,6 +58,13 @@ Be honest about failures. If a step fails, say so plainly — never imply succes
 export async function startMcpServer(): Promise<void> {
   const config = await loadConfig();
   const tts = await createTts(config);
+
+  // Sweep old trash/snapshots and bound the undo stack on startup, then daily (W4.5).
+  void runRetention();
+  const retentionTimer = setInterval(() => void runRetention(), 24 * 60 * 60 * 1000);
+  if (typeof retentionTimer === "object" && "unref" in retentionTimer) {
+    (retentionTimer as { unref(): void }).unref();
+  }
 
   // Proactivity: a reminder service that fires due reminders as a notification or spoken aloud,
   // even when Raja isn't in a listen turn. Persists across restarts under MAYA_DIR.
@@ -180,6 +188,27 @@ export async function startMcpServer(): Promise<void> {
         ],
         isError: true,
       };
+    }
+
+    // Hard gate, catastrophic shell only (W4.1): the handful of UNRECOVERABLE commands — wiping
+    // home/root, raw disk writes, mkfs, fork bombs, curl|sh — need confirm:true, like a payment.
+    // Everything else (sudo, installs, ordinary rm -rf build) runs and is audited.
+    if (name === "shell_run") {
+      const cat = classifyCatastrophic(String(input.command ?? ""));
+      if (cat.catastrophic && input.confirm !== true) {
+        await logAction(name, input, false, `blocked: catastrophic shell (${cat.pattern})`);
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `⚠️  This command is catastrophic (${cat.reason}) and is unrecoverable — not trash, not undoable. ` +
+                `Confirm with Raja, then call "shell_run" again with confirm:true.`,
+            },
+          ],
+          isError: true,
+        };
+      }
     }
 
     try {
