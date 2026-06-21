@@ -1,9 +1,9 @@
 /**
  * Sensing tools — give the agent eyes, ears, and clipboard access on the local machine.
  *
- * screenshot: grim (Wayland-native, preferred) or ImageMagick import (X11 fallback)
+ * screenshot: grim (Wayland, preferred) → spectacle (KDE) → ImageMagick import (X11)
  * clipboard_read/write: wl-paste / wl-copy (Wayland clipboard)
- * get_context: hyprctl activewindow → active window title + class
+ * get_context: hyprctl (Hyprland) → kdotool (KDE Plasma) → xdotool (X11)
  */
 import { join } from "node:path";
 import type { MayaTool } from "./index.ts";
@@ -51,16 +51,30 @@ export const sensingTools: Record<string, MayaTool> = {
         await proc.exited;
         const err = await new Response(proc.stderr).text();
         if (proc.exitCode !== 0) return `Screenshot failed: ${err.trim()}`;
-      } else if (importBin) {
-        const proc = Bun.spawn([importBin, "-window", "root", outPath], {
-          stdout: "ignore",
-          stderr: "pipe",
-        });
-        await proc.exited;
-        const err = await new Response(proc.stderr).text();
-        if (proc.exitCode !== 0) return `Screenshot failed: ${err.trim()}`;
       } else {
-        return "Screenshot unavailable: install grim (sudo dnf install grim) for Wayland screenshot support.";
+        // grim not found — try KDE spectacle, then ImageMagick import (X11)
+        const spectacle = await Bun.which("spectacle");
+        const used = spectacle
+          ? Bun.spawn([spectacle, "--background", "--nonotify", "--output", outPath], {
+              stdout: "ignore",
+              stderr: "pipe",
+            })
+          : importBin
+            ? Bun.spawn([importBin, "-window", "root", outPath], {
+                stdout: "ignore",
+                stderr: "pipe",
+              })
+            : null;
+
+        if (!used) {
+          return (
+            "Screenshot unavailable: install grim (sudo dnf install grim) for Wayland, " +
+            "or spectacle for KDE (sudo dnf install spectacle)."
+          );
+        }
+        await used.exited;
+        const err = await new Response(used.stderr).text();
+        if (used.exitCode !== 0) return `Screenshot failed: ${err.trim()}`;
       }
 
       // Return the bare path: returnsImage front-ends read it back as an image content block;
@@ -140,7 +154,7 @@ export const sensingTools: Record<string, MayaTool> = {
       },
     },
     execute: async () => {
-      // Try hyprctl first (Hyprland), fall back to xdotool (X11)
+      // Hyprland
       const hyprctl = await Bun.which("hyprctl");
       if (hyprctl) {
         const proc = Bun.spawn([hyprctl, "activewindow", "-j"], {
@@ -158,6 +172,32 @@ export const sensingTools: Record<string, MayaTool> = {
         }
       }
 
+      // KDE Plasma (Wayland or X11) via kdotool
+      const kdotool = await Bun.which("kdotool");
+      if (kdotool) {
+        const idProc = Bun.spawn([kdotool, "getactivewindow"], {
+          stdout: "pipe",
+          stderr: "ignore",
+        });
+        await idProc.exited;
+        if (idProc.exitCode === 0) {
+          const wid = (await new Response(idProc.stdout).text()).trim();
+          if (wid) {
+            const [nameProc, classProc] = [
+              Bun.spawn([kdotool, "getwindowname", wid], { stdout: "pipe", stderr: "ignore" }),
+              Bun.spawn([kdotool, "getwindowclassname", wid], { stdout: "pipe", stderr: "ignore" }),
+            ];
+            await Promise.all([nameProc.exited, classProc.exited]);
+            const title = (await new Response(nameProc.stdout).text()).trim();
+            const cls = (await new Response(classProc.stdout).text()).trim();
+            return cls
+              ? `Active window: "${title}" (class: ${cls})`
+              : `Active window: "${title}"`;
+          }
+        }
+      }
+
+      // X11 fallback
       const xdotool = await Bun.which("xdotool");
       if (xdotool) {
         const proc = Bun.spawn(
@@ -171,7 +211,7 @@ export const sensingTools: Record<string, MayaTool> = {
         }
       }
 
-      return "Could not determine active window (hyprctl and xdotool not found).";
+      return "Could not determine active window (no compositor tools found: hyprctl, kdotool, xdotool).";
     },
   },
 };
