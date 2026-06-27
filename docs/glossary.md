@@ -4,7 +4,12 @@
 |---|---|
 | Agent-first CLI | A command interface designed primarily for coding-agent context and parsing efficiency |
 | Body | Maya's local sensing and action capabilities; an external coding agent can supply the reasoning |
-| Brain | Either an external MCP client or the legacy in-process provider path in `src/brain/*` |
+| Brain | The external coding agent (Claude Code / Codex) that reasons and drives Maya by shelling out to `maya ...`; or the legacy in-process provider path in `src/brain/*` |
+| Generic dispatcher | `maya tool call <name>` straight over `buildTools()`; the parity guarantee that makes every registered tool callable without per-tool CLI code |
+| Curated command | A typed `maya <group> <action>` command with real flags, grown incrementally for high-traffic tools |
+| Capabilities | The one-call `maya capabilities` contract listing every command; the low-context replacement for the MCP schema dump |
+| Envelope | The deterministic `--json` result shape `{ok, version, command, data\|error}` |
+| Parity | The state where the CLI can do everything the MCP server can, so MCP can be demoted (ADR 0002) |
 | Core | Reusable behavior shared by transport adapters; a target boundary, not yet a dedicated directory |
 | Docs index | Curated JSON metadata that maps queries to files, tools, docs, and commands |
 | MCP adapter | `src/mcp/server.ts`, which exposes tool specs and wraps execution with protocol, safety, and audit behavior |

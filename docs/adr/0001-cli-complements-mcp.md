@@ -1,6 +1,6 @@
 # ADR 0001: CLI complements MCP through shared implementations
 
-- Status: accepted for planning
+- Status: superseded by ADR 0002
 - Date: 2026-06-27
 
 ## Context
