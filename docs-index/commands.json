@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "description": "Existing and planned Maya CLI commands. Planned entries are not implemented.",
+  "commands": [
+    {
+      "name": "maya start",
+      "category": "runtime",
+      "status": "implemented",
+      "description": "Start the Maya daemon, with optional --no-overlay.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["daemon", "start", "overlay"],
+      "whenToUse": "Use for the legacy always-running voice/overlay path."
+    },
+    {
+      "name": "maya stop",
+      "category": "runtime",
+      "status": "implemented",
+      "description": "Stop the Maya daemon.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["daemon", "stop"],
+      "whenToUse": "Use to stop the legacy daemon."
+    },
+    {
+      "name": "maya status",
+      "category": "runtime",
+      "status": "implemented",
+      "description": "Show Maya daemon status.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["daemon", "status", "health"],
+      "whenToUse": "Use to inspect whether the legacy daemon is running."
+    },
+    {
+      "name": "maya live <command...>",
+      "category": "legacy-agent",
+      "status": "implemented",
+      "description": "Run one in-process agent command with the WebSocket overlay bridge.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/architecture.md",
+      "keywords": ["live", "overlay", "agent", "brain"],
+      "whenToUse": "Use for the legacy visual agent path, not the MCP server."
+    },
+    {
+      "name": "maya ping",
+      "category": "diagnostic",
+      "status": "implemented",
+      "description": "Verify the Anthropic key using a small model request.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/development.md",
+      "keywords": ["ping", "anthropic", "api", "diagnostic"],
+      "whenToUse": "Use to test the legacy Anthropic provider configuration."
+    },
+    {
+      "name": "maya ask <command...>",
+      "category": "legacy-agent",
+      "status": "implemented",
+      "description": "Run one command through Maya's in-process agent loop.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/architecture.md",
+      "keywords": ["ask", "agent", "brain", "terminal"],
+      "whenToUse": "Use for the legacy in-process brain path."
+    },
+    {
+      "name": "maya mcp",
+      "category": "mcp",
+      "status": "implemented",
+      "description": "Start the MCP stdio server.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/mcp-server.md",
+      "keywords": ["mcp", "serve", "stdio", "server"],
+      "whenToUse": "Use as the current MCP server launch command."
+    },
+    {
+      "name": "maya setup [claude|codex]",
+      "category": "mcp",
+      "status": "implemented",
+      "description": "Register Maya with supported coding-agent MCP clients.",
+      "filePath": "src/index.ts",
+      "relatedDocsPath": "docs/mcp-server.md",
+      "keywords": ["mcp", "setup", "claude", "codex", "register"],
+      "whenToUse": "Use to install or refresh Maya's MCP registration."
+    },
+    {
+      "name": "maya doctor",
+      "category": "diagnostic",
+      "status": "planned",
+      "description": "Report installation, config, platform dependency, index, and MCP launch health.",
+      "filePath": null,
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["doctor", "health", "dependency", "config", "diagnostic"],
+      "whenToUse": "Use before debugging Maya or when an action command cannot start."
+    },
+    {
+      "name": "maya find <query>",
+      "category": "discovery",
+      "status": "planned",
+      "description": "Search curated file, tool, doc, and command indexes with bounded output.",
+      "filePath": null,
+      "relatedDocsPath": "docs/quick-find.md",
+      "keywords": ["find", "search", "index", "file", "tool", "docs"],
+      "whenToUse": "Use to locate the smallest relevant Maya context before opening source files."
+    },
+    {
+      "name": "maya docs query <query>",
+      "category": "discovery",
+      "status": "planned",
+      "description": "Search indexed Maya documentation and return focused matches.",
+      "filePath": null,
+      "relatedDocsPath": "docs/quick-find.md",
+      "keywords": ["docs", "query", "search", "index"],
+      "whenToUse": "Use when an agent needs design or workflow context rather than implementation."
+    },
+    {
+      "name": "maya docs index [--check]",
+      "category": "discovery",
+      "status": "planned",
+      "description": "Regenerate or validate the local docs indexes deterministically.",
+      "filePath": null,
+      "relatedDocsPath": "docs/quick-find.md",
+      "keywords": ["docs", "index", "generate", "validate", "check"],
+      "whenToUse": "Use after changing mapped commands, tools, files, or documentation."
+    },
+    {
+      "name": "maya tools list",
+      "category": "discovery",
+      "status": "planned",
+      "description": "List tool names and concise summaries without loading full schemas.",
+      "filePath": null,
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["tools", "list", "capability", "mcp"],
+      "whenToUse": "Use for lightweight capability discovery."
+    },
+    {
+      "name": "maya tools describe <tool-name>",
+      "category": "discovery",
+      "status": "planned",
+      "description": "Show one tool's source, purpose, inputs, usage, and future CLI mapping.",
+      "filePath": null,
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["tools", "describe", "schema", "mcp", "capability"],
+      "whenToUse": "Use when an agent needs one full tool contract instead of the complete MCP catalog."
+    },
+    {
+      "name": "maya files map [query]",
+      "category": "discovery",
+      "status": "planned",
+      "description": "List important repository files and responsibilities from the curated index.",
+      "filePath": null,
+      "relatedDocsPath": "docs/file-map.md",
+      "keywords": ["files", "map", "repository", "architecture"],
+      "whenToUse": "Use before repository exploration to avoid broad scans."
+    },
+    {
+      "name": "maya serve",
+      "category": "mcp",
+      "status": "planned",
+      "description": "Provide a clear agent-oriented MCP server launch command while preserving maya mcp compatibility.",
+      "filePath": null,
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["serve", "mcp", "stdio", "server"],
+      "whenToUse": "Use to launch Maya's MCP server after alias/compatibility design is settled."
+    },
+    {
+      "name": "maya browser screenshot --out <path>",
+      "category": "action",
+      "status": "planned",
+      "description": "Capture the shared Playwright page through a CLI adapter.",
+      "filePath": null,
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["browser", "screenshot", "image", "action"],
+      "whenToUse": "Use for a focused browser capture after browser lifecycle/output reuse is implemented."
+    },
+    {
+      "name": "maya terminal run <command...>",
+      "category": "action",
+      "status": "planned",
+      "description": "Run a focused shell command through shared safety, audit, timeout, and output behavior.",
+      "filePath": null,
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": ["terminal", "shell", "run", "action", "audit"],
+      "whenToUse": "Use only after the CLI action adapter preserves current MCP safety and auditing."
+    }
+  ]
+}
