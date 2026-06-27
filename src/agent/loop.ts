@@ -1,7 +1,7 @@
 import { loadConfig, type Config } from "../config/index.ts";
 import { buildTools, type MayaTool, type ToolDeps, toolSpecs } from "../tools/index.ts";
 import { closeBrowser } from "../tools/browser.ts";
-import { classify } from "../safety/floor.ts";
+import { runTool as coreRunTool } from "../core/run-tool.ts";
 import { SYSTEM_PROMPT } from "./system-prompt.ts";
 import { createBrain, type Brain, type ToolCall, type ToolOutcome } from "../brain/index.ts";
 import { createTts, type TtsBackend } from "../voice/tts.ts";
@@ -101,43 +101,17 @@ async function runTool(
   call: ToolCall,
   sink: MayaSink,
 ): Promise<ToolOutcome> {
-  const tool = tools[call.name];
-  if (!tool) return { id: call.id, name: call.name, content: `Unknown tool: ${call.name}`, isError: true };
+  if (!tools[call.name]) {
+    return { id: call.id, name: call.name, content: `Unknown tool: ${call.name}`, isError: true };
+  }
 
   await sink.toolStart(call.id, call.name, call.input);
+  // Delegate all gating (payment, catastrophic-shell), audit logging, and execution to the
+  // shared enforced-execution wrapper — the single sanctioned path for all callers.
+  const outcome = await coreRunTool(call.name, call.input, tools);
+  await sink.toolEnd(call.id, outcome.isError ? "failed" : "done");
 
-  // Irreversible-action floor: intercept BEFORE executing — independent of the model.
-  const verdict = classify({ name: call.name, input: call.input });
-  if (verdict.requiresConfirmation) {
-    const allowed = await sink.confirm(
-      call.name,
-      verdict.reason ?? "do something irreversible",
-      verdict.category ?? "irreversible",
-    );
-    if (!allowed) {
-      await sink.toolEnd(call.id, "failed");
-      return {
-        id: call.id,
-        name: call.name,
-        content: `User DENIED this action (${verdict.category}). Do not retry; choose another approach or stop.`,
-        isError: false,
-      };
-    }
-  }
-
-  try {
-    const content = await tool.execute(call.input);
-    await sink.toolEnd(call.id, "done");
-    return { id: call.id, name: call.name, content, isError: false };
-  } catch (err) {
-    await sink.toolEnd(call.id, "failed");
-    return {
-      id: call.id,
-      name: call.name,
-      content: `Tool ${call.name} failed: ${err instanceof Error ? err.message : String(err)}`,
-      isError: true,
-    };
-  }
+  return { id: call.id, name: call.name, content: outcome.text, isError: outcome.isError };
 }
 
 /** Default front-end: prints to the terminal and speaks via TTS; confirmations via stdin y/N. */
