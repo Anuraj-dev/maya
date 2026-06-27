@@ -6,7 +6,17 @@ import { z } from "zod";
  * All Maya runtime state lives here (mirrors hyprvox's ~/.config/hypr/vox).
  * Override with MAYA_DIR for tests or a second profile.
  */
-export const MAYA_DIR = process.env.MAYA_DIR || join(homedir(), ".config", "maya");
+/**
+ * Live resolver — reads MAYA_DIR on every call so a test (or a second profile) can override the env
+ * before the path is used. Capturing it once at import is what made audit's integration tests
+ * order-dependent: whichever module loaded config first froze the value.
+ */
+export function mayaDir(): string {
+  return process.env.MAYA_DIR || join(homedir(), ".config", "maya");
+}
+
+/** Snapshot at import for the many startup call sites that resolve their paths once and never change. */
+export const MAYA_DIR = mayaDir();
 export const CONFIG_PATH = join(MAYA_DIR, "config.json");
 export const SOCKET_PATH = join(MAYA_DIR, "daemon.sock");
 export const PID_PATH = join(MAYA_DIR, "overlay.pid");

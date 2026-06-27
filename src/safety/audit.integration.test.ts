@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const dir = mkdtempSync(join(tmpdir(), "maya-audit-"));
+const priorMayaDir = process.env.MAYA_DIR;
 process.env.MAYA_DIR = dir;
 
 const { logAction, runRetention } = await import("./audit.ts");
@@ -24,7 +25,12 @@ beforeEach(async () => {
   await rm(auditDir, { recursive: true, force: true });
   await rm(trashDir, { recursive: true, force: true });
 });
-afterAll(() => rmSync(dir, { recursive: true, force: true }));
+afterAll(() => {
+  rmSync(dir, { recursive: true, force: true });
+  // Restore the env: MAYA_DIR is now resolved live, so a leaked override would follow other tests.
+  if (priorMayaDir === undefined) delete process.env.MAYA_DIR;
+  else process.env.MAYA_DIR = priorMayaDir;
+});
 
 describe("audit log wiring", () => {
   test("appends one JSON line per call and redacts secrets", async () => {
