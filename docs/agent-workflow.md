@@ -10,7 +10,8 @@ editing Maya.
 3. Open only the mapped source file and its direct dependencies.
 4. Confirm current behavior in source before changing it; `plan.md` and `plan-production.md` include
    future work that may not exist.
-5. Run the narrow test file first, then `bun test` and `bun run typecheck` when the change warrants it.
+5. Do **not** run `bun test` or `bun run typecheck` locally — CI executes them on every PR push.
+   Learn pass/fail via `gh pr checks <PR> --watch=false` and `gh run view <id> --log-failed`.
 6. Update the relevant docs-index entry if a mapped tool, command, or file changed.
 
 ## Low-context lookup examples
@@ -30,16 +31,17 @@ trees. Prefer:
 rg --files -g '!node_modules/**' -g '!overlay/node_modules/**'
 ```
 
-## Choosing MCP or CLI later
+## Driving Maya: CLI vs MCP
 
-Use the future CLI when the task is a bounded lookup, diagnostic, index operation, one-shot terminal
-action, or deterministic Maya action. Use MCP when the agent needs tool discovery negotiated through
-MCP, rich image blocks, or a long conversational sequence of multiple Maya capabilities.
+The **CLI is the canonical interface** (ADR 0002). Use `maya <command>` for bounded lookups,
+diagnostics, index operations, one-shot terminal actions, and any deterministic Maya action. MCP is
+demoted to an optional pass-through; use it only when the host requires MCP protocol-level features
+(rich image blocks, capability negotiation) that the CLI cannot yet provide.
 
-The CLI should return the smallest complete result. Human explanation belongs in docs, while command
-output should favor stable names, paths, statuses, next commands, and explicit errors. Planned
-machine-readable output should use `--json`; normal output should remain concise text suitable for an
-agent transcript.
+The CLI should return the smallest complete result. Human explanation belongs in docs; command output
+should favor stable names, paths, statuses, next commands, and explicit errors. Machine-readable
+output uses `--json`; plain output stays concise and suitable for an agent transcript. Discovery is
+bootstrapped via a generated skill installed by `maya setup` (ADR 0004), not MCP schema injection.
 
 ## Change discipline
 
@@ -52,6 +54,7 @@ agent transcript.
 
 ## Current cycle boundary
 
-This cycle creates navigation material only. The next coder cycle should validate the docs-index
-schema and design the command adapter. It should not start with browser automation or terminal
-execution, because those depend on settled output, safety, and lifecycle contracts.
+The foundation slices (#19–#23) establish docs alignment, the docs-index, the declarative CLI
+registry, the shared `runTool` enforced-execution wrapper, and the CLI process-boundary test harness.
+Action command slices (#24–#32) follow. Browser automation and terminal execution come last because
+they depend on settled output, safety, and lifecycle contracts.

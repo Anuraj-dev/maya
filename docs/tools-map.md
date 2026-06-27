@@ -1,14 +1,19 @@
 # Tools map
 
 Maya tool names use underscores because provider tool-name rules allow `[a-zA-Z0-9_-]`. The source
-registry lives in `src/tools/index.ts`; the MCP adapter adds three tools in `src/mcp/server.ts`.
+registry lives in `src/tools/index.ts`; the MCP adapter adds three transport-local tools in
+`src/mcp/server.ts` (`listen`, `speak`, `undo`).
+
+Every tool in the registry will be reachable via the planned CLI generic dispatcher
+(`maya tool call <name> --json '{"arg":"value"}'`, issue #25). All execution will route through
+`runTool` (ADR 0005); the dispatcher is not yet implemented.
 
 ## Browser
 
 Source: `src/tools/browser.ts`. Runtime: one persistent Playwright Chromium context using the configured
 profile directory.
 
-| MCP tool | Purpose | Future CLI direction |
+| Tool | Purpose | Future CLI direction |
 |---|---|---|
 | `browser_navigate` | Navigate and return title plus ARIA snapshot | `maya browser navigate` (future) |
 | `browser_read` | Read current page as an ARIA snapshot | `maya browser read` (future) |
@@ -23,7 +28,7 @@ profile directory.
 
 ## Terminal and processes
 
-| MCP tool | Source | Purpose | Future CLI direction |
+| Tool | Source | Purpose | Future CLI direction |
 |---|---|---|---|
 | `shell_run` | `src/tools/shell.ts` | One-shot `/bin/sh -c`, 30-second limit | `maya terminal run` |
 | `proc_start` | `src/tools/process.ts` | Start managed background command | future `maya terminal start` |
@@ -35,7 +40,7 @@ profile directory.
 
 ## Files and apps
 
-| MCP tool | Source | Purpose |
+| Tool | Source | Purpose |
 |---|---|---|
 | `file_read` | `src/tools/file.ts` | Read a text file, truncated at 10,000 characters |
 | `file_write` | `src/tools/file.ts` | Create or overwrite with snapshot support |
@@ -49,7 +54,7 @@ read `docs-index/files.json`; it is not a wrapper around an existing MCP tool.
 
 Source: `src/tools/sensing.ts`.
 
-| MCP tool | Purpose |
+| Tool | Purpose |
 |---|---|
 | `screenshot` | Capture the desktop with `grim`, `spectacle`, or ImageMagick `import` |
 | `clipboard_read` | Read Wayland clipboard through `wl-paste` |
@@ -61,7 +66,7 @@ No general `system_state`, DNS, network, audio, or media tool is currently regis
 
 ## Obsidian, memory, reminders
 
-| MCP tool | Source | Purpose |
+| Tool | Source | Purpose |
 |---|---|---|
 | `vault_read` | `src/tools/vault.ts` | Read an Obsidian note through the `ob` CLI |
 | `vault_search` | `src/tools/vault.ts` | Search the vault |

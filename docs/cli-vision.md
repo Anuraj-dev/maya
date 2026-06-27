@@ -2,12 +2,14 @@
 
 ## Purpose
 
-The Maya CLI is primarily an interface for coding agents. Its success metric is not interactive shell
+The Maya CLI is Maya's **canonical interface** (ADR 0002). Its primary users are coding agents
+(Claude Code, Codex, and any shell-capable brain). Its success metric is not interactive shell
 ergonomics; it is how much repository scanning, schema loading, repeated discovery, and output parsing
 an agent can avoid.
 
-MCP remains the broad capability protocol. The CLI becomes the low-context path for known, bounded
-operations.
+MCP is **demoted to an optional pass-through** over the same shared behavior — it is not deleted in
+this cycle but is no longer the invested-in primary interface. Agents that previously drove Maya via
+MCP tool-calls should shell out to `maya …` commands instead. See ADR 0002.
 
 ## Existing CLI
 
@@ -30,12 +32,15 @@ Planned work should extend this surface without breaking those commands.
 
 1. **Agent-first output.** Default text is short, deterministic, and actionable. Add `--json` for
    stable machine parsing rather than making verbose JSON the only interface.
-2. **Progressive discovery.** `--help` shows command groups; `tools list` shows names and one-line
-   summaries; `tools describe` shows one full contract.
-3. **Cheap read paths.** `find`, `docs query`, `tools list`, and `files map` read local indexes without
+2. **Progressive discovery.** `maya capabilities` returns the full command contract; `--help` shows
+   command groups; `tool list` shows names and one-line summaries; `tool describe` shows one
+   full schema. Discovery is bootstrapped via a generated agent skill installed by `maya setup`
+   (ADR 0004) — not MCP schema injection.
+3. **Cheap read paths.** `find`, `docs query`, `tool list`, and `files map` read local indexes without
    starting Playwright, TTS, reminders, the daemon, or MCP.
-4. **One implementation.** CLI and MCP adapters call shared execution logic. Neither adapter owns a
-   second implementation of browser, terminal, file, or safety behavior.
+4. **One enforced-execution path.** CLI and MCP adapters both route through `runTool(name, input)`.
+   Neither adapter owns audit logging, payment gates, catastrophic-shell gates, or undo-snapshotting —
+   those live in the shared wrapper (ADR 0005).
 5. **Bounded output.** Commands accept limits where results can grow and explicitly say when output is
    truncated.
 6. **Explicit side effects.** Action commands identify what they will operate on and preserve current
@@ -46,7 +51,7 @@ Planned work should extend this surface without breaking those commands.
 ## Highest-value command order
 
 1. `maya --help`, `maya doctor`, and existing command cleanup.
-2. `maya find`, `maya tools list`, `maya tools describe`, `maya docs query`, and `maya files map`.
+2. `maya find`, `maya tool list`, `maya tool describe`, `maya docs query`, and `maya files map`.
 3. `maya docs index` with deterministic validation/regeneration.
 4. `maya serve` as a clear alias or successor for the MCP launch path.
 5. Browser and terminal command groups after shared lifecycle, output, safety, and audit contracts are
@@ -64,8 +69,8 @@ maya serve
 maya find <query> [--type file|tool|doc|command] [--limit N] [--json]
 maya docs query <query> [--limit N] [--json]
 maya docs index [--check]
-maya tools list [--category category] [--json]
-maya tools describe <tool-name> [--json]
+maya tool list [--category category] [--json]
+maya tool describe <tool-name> [--json]
 maya files map [query] [--json]
 maya browser screenshot --out <path>
 maya terminal run <command...>
