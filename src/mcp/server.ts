@@ -29,9 +29,8 @@ import { join } from "node:path";
 
 import { loadConfig, MAYA_DIR } from "../config/index.ts";
 import { buildTools, type MayaTool } from "../tools/index.ts";
-import { classify } from "../safety/floor.ts";
-import { classifyCatastrophic } from "../safety/catastrophic.ts";
-import { logAction, undoLast, runRetention } from "../safety/audit.ts";
+import { runTool } from "../core/run-tool.ts";
+import { undoLast, runRetention } from "../safety/audit.ts";
 import { createTts } from "../voice/tts.ts";
 import { listenOnce } from "../voice/listen.ts";
 import { sendNotification } from "../tools/proactive.ts";
@@ -167,74 +166,28 @@ export async function startMcpServer(): Promise<void> {
   server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolResult> => {
     const { name, arguments: args = {} } = req.params;
     const input = args as Record<string, unknown>;
-    const tool = tools[name];
 
-    if (!tool) {
-      return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
+    const outcome = await runTool(name, input, tools);
+
+    if (outcome.isError) {
+      return { content: [{ type: "text", text: outcome.text }], isError: true };
     }
 
-    // Hard gate, payments only: a charge is neither audited-away nor undoable.
-    const verdict = classify({ name, input });
-    if (verdict.category === "payment" && input.confirm !== true) {
-      await logAction(name, input, false, "blocked: payment needs confirm:true");
+    // Eyes: a returnsImage tool hands back a file path on success — read it back as an image
+    // block so the brain can actually SEE it, not just receive a path it can't open.
+    const tool = tools[name];
+    if (tool?.returnsImage && existsSync(outcome.text)) {
+      const bytes = await Bun.file(outcome.text).arrayBuffer();
+      const data = Buffer.from(bytes).toString("base64");
       return {
         content: [
-          {
-            type: "text",
-            text:
-              `⚠️  This is a payment (${verdict.reason}) and is the one action Maya will not take on her own. ` +
-              `Confirm with Raja, then call "${name}" again with confirm:true.`,
-          },
+          { type: "image", data, mimeType: "image/png" },
+          { type: "text", text: outcome.text },
         ],
-        isError: true,
       };
     }
 
-    // Hard gate, catastrophic shell only (W4.1): the handful of UNRECOVERABLE commands — wiping
-    // home/root, raw disk writes, mkfs, fork bombs, curl|sh — need confirm:true, like a payment.
-    // Everything else (sudo, installs, ordinary rm -rf build) runs and is audited.
-    if (name === "shell_run") {
-      const cat = classifyCatastrophic(String(input.command ?? ""));
-      if (cat.catastrophic && input.confirm !== true) {
-        await logAction(name, input, false, `blocked: catastrophic shell (${cat.pattern})`);
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                `⚠️  This command is catastrophic (${cat.reason}) and is unrecoverable — not trash, not undoable. ` +
-                `Confirm with Raja, then call "shell_run" again with confirm:true.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    }
-
-    try {
-      const result = await tool.execute(input);
-
-      // Eyes: a returnsImage tool hands back a file path on success — read it back as an image
-      // block so the brain can actually SEE it, not just receive a path it can't open.
-      if (tool.returnsImage && existsSync(result)) {
-        const bytes = await Bun.file(result).arrayBuffer();
-        const data = Buffer.from(bytes).toString("base64");
-        await logAction(name, input, true, `image: ${result}`);
-        return {
-          content: [
-            { type: "image", data, mimeType: "image/png" },
-            { type: "text", text: result },
-          ],
-        };
-      }
-
-      await logAction(name, input, true, result);
-      return { content: [{ type: "text", text: result }] };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await logAction(name, input, false, msg);
-      return { content: [{ type: "text", text: `Tool "${name}" failed: ${msg}` }], isError: true };
-    }
+    return { content: [{ type: "text", text: outcome.text }] };
   });
 
   const transport = new StdioServerTransport();
