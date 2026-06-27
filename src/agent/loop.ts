@@ -1,6 +1,7 @@
 import { loadConfig, type Config } from "../config/index.ts";
 import { buildTools, type MayaTool, type ToolDeps, toolSpecs } from "../tools/index.ts";
 import { closeBrowser } from "../tools/browser.ts";
+import { runTool as coreRunTool } from "../core/run-tool.ts";
 import { classify } from "../safety/floor.ts";
 import { SYSTEM_PROMPT } from "./system-prompt.ts";
 import { createBrain, type Brain, type ToolCall, type ToolOutcome } from "../brain/index.ts";
@@ -101,12 +102,36 @@ async function runTool(
   call: ToolCall,
   sink: MayaSink,
 ): Promise<ToolOutcome> {
-  const tool = tools[call.name];
-  if (!tool) return { id: call.id, name: call.name, content: `Unknown tool: ${call.name}`, isError: true };
+  return executeToolViaLoop(tools, call, sink);
+}
+
+/**
+ * The loop/CLI tool-execution path. Exported for unit testing.
+ *
+ * Two layers of safety applied in order:
+ *
+ *   1. Irreversible-action floor (loop-specific) — the agent loop has a human to confirm with;
+ *      classify() flags file_delete, overwrite, sudo, send/publish etc. and sink.confirm()
+ *      asks the user before proceeding. Denial returns early with no execution.
+ *
+ *   2. Shared enforced-execution wrapper — coreRunTool applies the payment hard-gate,
+ *      the catastrophic-shell gate, and audit logging regardless of caller.
+ *
+ * UI callbacks (toolStart / toolEnd) bracket the whole flow so the overlay / terminal
+ * always sees a matching start→end pair.
+ */
+export async function executeToolViaLoop(
+  tools: Record<string, MayaTool>,
+  call: ToolCall,
+  sink: MayaSink,
+): Promise<ToolOutcome> {
+  if (!tools[call.name]) {
+    return { id: call.id, name: call.name, content: `Unknown tool: ${call.name}`, isError: true };
+  }
 
   await sink.toolStart(call.id, call.name, call.input);
 
-  // Irreversible-action floor: intercept BEFORE executing — independent of the model.
+  // Layer 1 — irreversible-action floor (human confirmation, loop/CLI only).
   const verdict = classify({ name: call.name, input: call.input });
   if (verdict.requiresConfirmation) {
     const allowed = await sink.confirm(
@@ -125,19 +150,11 @@ async function runTool(
     }
   }
 
-  try {
-    const content = await tool.execute(call.input);
-    await sink.toolEnd(call.id, "done");
-    return { id: call.id, name: call.name, content, isError: false };
-  } catch (err) {
-    await sink.toolEnd(call.id, "failed");
-    return {
-      id: call.id,
-      name: call.name,
-      content: `Tool ${call.name} failed: ${err instanceof Error ? err.message : String(err)}`,
-      isError: true,
-    };
-  }
+  // Layer 2 — shared enforced-execution wrapper (payment gate, catastrophic-shell gate, audit).
+  const outcome = await coreRunTool(call.name, call.input, tools);
+  await sink.toolEnd(call.id, outcome.isError ? "failed" : "done");
+
+  return { id: call.id, name: call.name, content: outcome.text, isError: outcome.isError };
 }
 
 /** Default front-end: prints to the terminal and speaks via TTS; confirmations via stdin y/N. */
