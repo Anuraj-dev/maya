@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { copyFile, rename, readFile, writeFile, appendFile, readdir, stat, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { MAYA_DIR } from "../config/index.ts";
+import { mayaDir } from "../config/index.ts";
 import { redactSecrets, redactString } from "./redact.ts";
 import { selectExpired, boundUndoStack } from "./retention.ts";
 
@@ -24,11 +24,22 @@ import { selectExpired, boundUndoStack } from "./retention.ts";
 const RETENTION_DAYS = 14;
 const MAX_UNDO_DEPTH = 100;
 
-const AUDIT_DIR = join(MAYA_DIR, "audit");
-const AUDIT_LOG = join(AUDIT_DIR, "log.jsonl");
-const UNDO_STACK = join(AUDIT_DIR, "undo.json");
-const TRASH_DIR = join(MAYA_DIR, "trash");
-const SNAP_DIR = join(MAYA_DIR, "snapshots");
+/**
+ * Resolve the audit/undo/trash/snapshot paths LIVE on each call (via mayaDir()), not once at import.
+ * This is what keeps the integration tests order-independent: they set MAYA_DIR before exercising
+ * these functions, and each call honors that override regardless of which module loaded config first.
+ */
+function paths() {
+  const base = mayaDir();
+  const auditDir = join(base, "audit");
+  return {
+    auditDir,
+    auditLog: join(auditDir, "log.jsonl"),
+    undoStack: join(auditDir, "undo.json"),
+    trashDir: join(base, "trash"),
+    snapDir: join(base, "snapshots"),
+  };
+}
 
 function ensureDir(dir: string): void {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -64,7 +75,8 @@ export async function logAction(
   summary: string,
 ): Promise<void> {
   try {
-    ensureDir(AUDIT_DIR);
+    const { auditDir, auditLog } = paths();
+    ensureDir(auditDir);
     const entry: AuditEntry = {
       ts: new Date().toISOString(),
       tool,
@@ -72,7 +84,7 @@ export async function logAction(
       ok,
       summary: redactString(summary).slice(0, 500),
     };
-    await appendFile(AUDIT_LOG, JSON.stringify(entry) + "\n");
+    await appendFile(auditLog, JSON.stringify(entry) + "\n");
   } catch {
     /* never let auditing throw into a tool call */
   }
@@ -87,17 +99,19 @@ type UndoEntry =
   | { kind: "restore-snapshot"; snapshotPath: string; originalPath: string; ts: string };
 
 async function loadUndo(): Promise<UndoEntry[]> {
-  if (!existsSync(UNDO_STACK)) return [];
+  const { undoStack } = paths();
+  if (!existsSync(undoStack)) return [];
   try {
-    return JSON.parse(await readFile(UNDO_STACK, "utf8")) as UndoEntry[];
+    return JSON.parse(await readFile(undoStack, "utf8")) as UndoEntry[];
   } catch {
     return [];
   }
 }
 
 async function saveUndo(stack: UndoEntry[]): Promise<void> {
-  ensureDir(AUDIT_DIR);
-  await writeFile(UNDO_STACK, JSON.stringify(stack, null, 2));
+  const { auditDir, undoStack } = paths();
+  ensureDir(auditDir);
+  await writeFile(undoStack, JSON.stringify(stack, null, 2));
 }
 
 async function push(entry: UndoEntry): Promise<void> {
@@ -115,8 +129,9 @@ async function push(entry: UndoEntry): Promise<void> {
  * Returns the trash path so callers can tell the user where it went.
  */
 export async function trashFile(path: string): Promise<string> {
-  ensureDir(TRASH_DIR);
-  const trashedPath = join(TRASH_DIR, `${basename(path)}.${stamp()}`);
+  const { trashDir } = paths();
+  ensureDir(trashDir);
+  const trashedPath = join(trashDir, `${basename(path)}.${stamp()}`);
   await rename(path, trashedPath);
   await push({ kind: "restore-trashed", trashedPath, originalPath: path, ts: new Date().toISOString() });
   return trashedPath;
@@ -128,8 +143,9 @@ export async function trashFile(path: string): Promise<string> {
  */
 export async function snapshotFile(path: string): Promise<string | null> {
   if (!existsSync(path)) return null;
-  ensureDir(SNAP_DIR);
-  const snapshotPath = join(SNAP_DIR, `${basename(path)}.${stamp()}`);
+  const { snapDir } = paths();
+  ensureDir(snapDir);
+  const snapshotPath = join(snapDir, `${basename(path)}.${stamp()}`);
   await copyFile(path, snapshotPath);
   await push({ kind: "restore-snapshot", snapshotPath, originalPath: path, ts: new Date().toISOString() });
   return snapshotPath;
@@ -171,9 +187,10 @@ export async function runRetention(
   const maxAgeDays = opts.maxAgeDays ?? RETENTION_DAYS;
   const maxUndoDepth = opts.maxUndoDepth ?? MAX_UNDO_DEPTH;
   const now = Date.now();
+  const { trashDir, snapDir } = paths();
 
   // 1. GC trash + snapshot files older than the window.
-  for (const dir of [TRASH_DIR, SNAP_DIR]) {
+  for (const dir of [trashDir, snapDir]) {
     if (!existsSync(dir)) continue;
     try {
       const names = await readdir(dir);
