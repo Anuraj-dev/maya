@@ -55,7 +55,7 @@ processes, apps, and voice. That metadata is valuable for open-ended use but was
 only needs one known action or a repository lookup.
 
 The CLI complements this model by making the command name itself the capability selector. An agent can
-ask for `maya tools describe browser_screenshot` or run a focused action without carrying unrelated
+ask for `maya tool describe browser_screenshot` or run a focused action without carrying unrelated
 tool definitions in the same context.
 
 ## Preserve

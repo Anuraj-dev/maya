@@ -120,7 +120,7 @@ process logs, screenshots, memory, sockets, and PID data live below `MAYA_DIR`.
 `runTool` (see Tool architecture above) owns auditing, payment confirmation, catastrophic-shell
 confirmation, and undo snapshotting across both adapters. The MCP adapter additionally handles
 retention startup, undo *exposure* as a transport-local tool, and MCP error-format conversion.
-Discovery commands (`find`, `tools list`, `docs query`) are read-only and bypass `runTool`; they
+Discovery commands (`find`, `tool list`, `docs query`) are read-only and bypass `runTool`; they
 must not initialize Playwright, TTS, reminders, or the process manager.
 
 **Current gap:** `src/mcp/server.ts` still owns some of these policies inline. Migration to
