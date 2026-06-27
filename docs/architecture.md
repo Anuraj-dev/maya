@@ -2,10 +2,14 @@
 
 ## Runtime summary
 
-Maya is a Bun-native TypeScript project with four active surfaces:
+Maya is a Bun-native TypeScript project. The **CLI is the canonical interface** (ADR 0002); MCP is
+demoted to an optional pass-through that is not deleted this cycle. Active surfaces:
 
-1. `src/index.ts` is the Commander CLI entry point.
-2. `src/mcp/server.ts` exposes Maya tools over MCP stdio.
+1. `src/index.ts` is the CLI entry point. Migrating from Commander to a declarative command registry
+   under `src/cli/` (ADR 0003); existing commands (`start/stop/status/mcp/setup/ask/ping/live`) are
+   kept and migrated into specs.
+2. `src/mcp/server.ts` exposes Maya tools over MCP stdio — now a demoted adapter, not the primary
+   interface.
 3. `src/agent/loop.ts` runs the legacy in-process LLM path used by `maya ask`, `maya live`, and the daemon.
 4. `overlay/` is a React/Vite/Electron status UI connected through a WebSocket bridge in the current live path.
 
@@ -34,8 +38,23 @@ src/mcp/server.ts
 ## Tool architecture
 
 `src/tools/index.ts` defines `ToolSpec`, `MayaTool`, and `buildTools()`. Each module in `src/tools/`
-returns a record containing both agent-facing metadata (`name`, `description`, JSON input schema) and
-an `execute()` function. `buildTools()` merges those records.
+returns a record containing agent-facing metadata (`name`, `description`, JSON input schema) and an
+`execute()` function. `buildTools()` merges those records.
+
+### Enforced-execution wrapper
+
+`src/core/run-tool.ts` exports `runTool(name, input)` — the **only sanctioned execution path**
+(ADR 0005). It wraps the raw `execute()` with:
+
+- append-only audit logging
+- payment hard-gate (`confirm: true` requirement)
+- catastrophic-shell classification gate
+- undo snapshotting
+
+Both the CLI and the MCP adapter call `runTool`; neither owns safety or audit logic directly.
+Calling `execute()` directly bypasses these gates and is not permitted for action commands.
+
+### MCP-local tools
 
 The MCP server adds three transport-local tools after calling `buildTools()`:
 
@@ -44,13 +63,12 @@ The MCP server adds three transport-local tools after calling `buildTools()`:
 - `undo`
 
 It converts all specs to MCP `Tool` objects, serves them from `ListTools`, and dispatches `CallTool`
-requests to the matching `execute()` function. Image-returning tools return a path internally; the
-MCP adapter reads that path and emits an MCP image block.
+through `runTool`. Image-returning tools return a path internally; the MCP adapter reads that path
+and emits an MCP image block.
 
-This is the main future reuse seam. A CLI should call the same execution services as MCP. It should
-not reimplement Playwright, shell execution, file safety, reminders, or process management. The
-current spec-plus-executor objects can be adapted first; extraction into separate core services
-should happen only where tests show the adapter cannot reuse them cleanly.
+The CLI generic dispatcher (`maya tool call <name>`) routes the same registry through `runTool` and
+emits the `{ok, version, command, data|error}` envelope (ADR 0003). Neither adapter reimplements
+Playwright, shell execution, file safety, reminders, or process management.
 
 ## Browser and form control
 
@@ -98,10 +116,14 @@ process logs, screenshots, memory, sockets, and PID data live below `MAYA_DIR`.
 
 ## Safety boundary
 
-The MCP call adapter, not each tool module, currently owns auditing, payment confirmation,
-catastrophic shell confirmation, retention startup, undo exposure, and MCP error conversion. A future
-CLI action adapter must preserve the same policies. Discovery commands such as `find`, `tools list`,
-and `docs query` should remain read-only and should not initialize expensive runtime dependencies.
+`runTool` (see Tool architecture above) owns auditing, payment confirmation, catastrophic-shell
+confirmation, and undo snapshotting across both adapters. The MCP adapter additionally handles
+retention startup, undo *exposure* as a transport-local tool, and MCP error-format conversion.
+Discovery commands (`find`, `tools list`, `docs query`) are read-only and bypass `runTool`; they
+must not initialize Playwright, TTS, reminders, or the process manager.
+
+**Current gap:** `src/mcp/server.ts` still owns some of these policies inline. Migration to
+`runTool` is in progress; the wrapper test suite (seam S2) enforces parity.
 
 ## Do not refactor yet
 
