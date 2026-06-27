@@ -2,12 +2,13 @@
 
 > A female Jarvis-like voice agent. Speak. She listens, asks, acts (browser + desktop), and reports back — in a melodic, slightly-robotic voice, with animated eyes and a live task queue.
 
-**Status:** scaffold (Phase 0). See [`PRD.md`](./PRD.md) and the build plan at
-`~/.claude/plans/validated-popping-elephant.md`.
+**Status:** working prototype with MCP, legacy daemon/agent paths, and an initial CLI. See the
+[agent documentation](./docs/README.md), the [CLI-first PRD](./docs/PRD-maya-cli-agent-interface.md),
+and the original [`PRD.md`](./PRD.md).
 
 ## What it is
 
-You wake Maya by saying **"Maya, …"** (captured by [hyprvox](../hyprvox) → clipboard). She
+You wake Maya by saying **"Maya, …"** (captured by [hyprvox](../Snehit_projects/hyprvox) → clipboard). She
 reasons with Claude, executes through gated tools (a real browser via Playwright, plus
 shell / files / apps), and talks back through Piper TTS. An Electron overlay shows her state
 as animated eyes and a live queue of what she's doing. She asks when unsure — auto-opening the
@@ -53,6 +54,12 @@ src/
   config/index.ts       ~/.config/maya/config.json     [implemented]
 overlay/                Electron app (Phase 5)
 ```
+
+## Agent documentation
+
+Future coding agents should start at [`docs/README.md`](./docs/README.md) and query the curated
+[`docs-index/`](./docs-index/index.md) maps before scanning the repository. These documents distinguish
+implemented capabilities from roadmap items and explain the planned token-efficient CLI direction.
 
 ## Build phases
 
