@@ -1,8 +1,13 @@
 import { invalidCommand, invalidOption, invalidUsage } from "./errors.ts";
-import type { CommandSpec, ParsedCommand } from "./types.ts";
+import type {
+  CommandSpec,
+  GlobalOptionSpec,
+  ParsedCommand,
+  ParsedGlobalOptions,
+} from "./types.ts";
 
-function isGlobalFlag(token: string): boolean {
-  return token === "--json" || token === "--help";
+function matchesGlobalOption(token: string, option: GlobalOptionSpec): boolean {
+  return token === option.long || token === option.short;
 }
 
 function normalizeArgName(name: string): string {
@@ -11,12 +16,38 @@ function normalizeArgName(name: string): string {
     .replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 }
 
-export function parseCommand(argv: string[], specs: CommandSpec[]): ParsedCommand | null {
+export function parseGlobalOptions(
+  argv: string[],
+  options: GlobalOptionSpec[],
+): ParsedGlobalOptions {
+  const boundary = argv.indexOf("--");
+  const optionTokens = boundary === -1 ? argv : argv.slice(0, boundary);
+  const has = (key: GlobalOptionSpec["key"]): boolean => {
+    const option = options.find((candidate) => candidate.key === key);
+    return option ? optionTokens.some((token) => matchesGlobalOption(token, option)) : false;
+  };
+
+  return {
+    help: has("help"),
+    json: has("json"),
+    version: has("version"),
+  };
+}
+
+export function parseCommand(
+  argv: string[],
+  specs: CommandSpec[],
+  globalOptions: GlobalOptionSpec[],
+): ParsedCommand | null {
   if (argv.length === 0) return null;
 
-  const json = argv.includes("--json");
-  const help = argv.includes("--help");
-  const filtered = argv.filter((token) => !isGlobalFlag(token));
+  const globals = parseGlobalOptions(argv, globalOptions);
+  const boundary = argv.indexOf("--");
+  const optionTokens = boundary === -1 ? argv : argv.slice(0, boundary);
+  const escapedPositionals = boundary === -1 ? [] : argv.slice(boundary + 1);
+  const filtered = optionTokens.filter(
+    (token) => !globalOptions.some((option) => matchesGlobalOption(token, option)),
+  );
   if (filtered.length === 0) return null;
 
   const matched = [...specs]
@@ -24,6 +55,8 @@ export function parseCommand(argv: string[], specs: CommandSpec[]): ParsedComman
     .find((spec) => spec.path.every((segment, index) => filtered[index] === segment));
 
   if (!matched) {
+    const input = filtered[0]!;
+    if (input.startsWith("-")) throw invalidOption(input, "unknown");
     throw invalidCommand(filtered.join(" "), specs);
   }
 
@@ -37,12 +70,13 @@ export function parseCommand(argv: string[], specs: CommandSpec[]): ParsedComman
 
   const positionals: string[] = [];
   for (let index = 0; index < rest.length; index += 1) {
-    const token = rest[index];
+    const token = rest[index]!;
     const option = (matched.options ?? []).find((candidate) =>
       candidate.long === token || candidate.short === token,
     );
 
     if (!option) {
+      if (token.startsWith("-")) throw invalidOption(token, "unknown");
       positionals.push(token);
       continue;
     }
@@ -59,9 +93,17 @@ export function parseCommand(argv: string[], specs: CommandSpec[]): ParsedComman
     index += 1;
   }
 
+  positionals.push(...escapedPositionals);
+
   validatePositionals(matched, positionals);
 
-  return { spec: matched, json, help, values, positionals };
+  return {
+    spec: matched,
+    json: globals.json,
+    help: globals.help,
+    values,
+    positionals,
+  };
 }
 
 function validatePositionals(spec: CommandSpec, positionals: string[]): void {

@@ -1,4 +1,4 @@
-import type { CommandCategory, CommandSpec } from "./types.ts";
+import type { CommandCategory, CommandSpec, GlobalOptionSpec } from "./types.ts";
 
 const CATEGORY_TITLES: Record<CommandCategory, string> = {
   runtime: "Runtime",
@@ -25,7 +25,7 @@ function formatOptions(spec: CommandSpec): string[] {
   });
 }
 
-export function renderRootHelp(specs: CommandSpec[]): string {
+export function renderRootHelp(specs: CommandSpec[], globalOptions: GlobalOptionSpec[]): string {
   const groups = new Map<CommandCategory, CommandSpec[]>();
   for (const spec of specs) {
     const list = groups.get(spec.category) ?? [];
@@ -53,17 +53,21 @@ export function renderRootHelp(specs: CommandSpec[]): string {
   }
 
   lines.push("Global options:");
-  lines.push("  --help  Show help");
-  lines.push("  --json  Emit the versioned JSON envelope");
+  for (const option of globalOptions) {
+    lines.push(`  ${[option.short, option.long].filter(Boolean).join(", ")}  ${option.description}`);
+  }
   return lines.join("\n");
 }
 
-export function renderCommandHelp(spec: CommandSpec): string {
+export function renderCommandHelp(spec: CommandSpec, globalOptions: GlobalOptionSpec[]): string {
   const lines = [formatUsage(spec), "", spec.description];
   const options = formatOptions(spec);
   if (options.length > 0) {
     lines.push("", "Options:", ...options);
   }
-  lines.push("", "Global options:", "  --help  Show help", "  --json  Emit the versioned JSON envelope");
+  lines.push("", "Global options:");
+  for (const option of globalOptions) {
+    lines.push(`  ${[option.short, option.long].filter(Boolean).join(", ")}  ${option.description}`);
+  }
   return lines.join("\n");
 }

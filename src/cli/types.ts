@@ -1,4 +1,12 @@
 export const CLI_VERSION = "1";
+export const MAYA_VERSION = "0.0.0";
+
+export interface GlobalOptionSpec {
+  key: "help" | "json" | "version";
+  long: string;
+  short?: string;
+  description: string;
+}
 
 export type CommandCategory =
   | "runtime"
@@ -49,6 +57,12 @@ export interface ParsedCommand {
   help: boolean;
   values: Record<string, unknown>;
   positionals: string[];
+}
+
+export interface ParsedGlobalOptions {
+  help: boolean;
+  json: boolean;
+  version: boolean;
 }
 
 export interface CliError extends Error {

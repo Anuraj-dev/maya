@@ -56,8 +56,13 @@ export function invalidCommand(input: string, specs: CommandSpec[]): CliError {
   );
 }
 
-export function invalidOption(option: string): CliError {
-  return makeError("invalid_option", `Option "${option}" requires a value.`, 2);
+export function invalidOption(option: string, reason: "missing_value" | "unknown" = "missing_value"): CliError {
+  return makeError(
+    "invalid_option",
+    reason === "unknown" ? `Unknown option "${option}".` : `Option "${option}" requires a value.`,
+    2,
+    { option, reason },
+  );
 }
 
 export function invalidUsage(message: string, details?: Record<string, unknown>): CliError {

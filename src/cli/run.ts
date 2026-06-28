@@ -1,10 +1,10 @@
 import { buildCapabilities } from "./capabilities.ts";
 import { printError, printSuccess } from "./envelope.ts";
 import { renderCommandHelp, renderRootHelp } from "./help.ts";
-import { COMMAND_SPECS } from "./specs.ts";
-import { parseCommand } from "./parser.ts";
+import { COMMAND_SPECS, GLOBAL_OPTIONS } from "./specs.ts";
+import { parseCommand, parseGlobalOptions } from "./parser.ts";
 import { executionFailed } from "./errors.ts";
-import type { CliError } from "./types.ts";
+import { CLI_VERSION, MAYA_VERSION, type CliError } from "./types.ts";
 
 function coerceCliError(error: unknown): CliError {
   if (
@@ -21,18 +21,35 @@ function coerceCliError(error: unknown): CliError {
 }
 
 export async function runCli(argv: string[]): Promise<number> {
-  const command = argv.find((token) => token !== "--json" && token !== "--help") ?? "maya";
-  const json = argv.includes("--json");
+  const globals = parseGlobalOptions(argv, GLOBAL_OPTIONS);
+  const command = argv.find(
+    (token) => !GLOBAL_OPTIONS.some((option) => token === option.long || token === option.short),
+  ) ?? "maya";
+  const json = globals.json;
 
   try {
-    const parsed = parseCommand(argv, COMMAND_SPECS);
-
-    if (!parsed) {
-      const text = renderRootHelp(COMMAND_SPECS);
+    if (globals.version) {
       if (json) {
         console.log(JSON.stringify({
           ok: true,
-          version: buildCapabilities(COMMAND_SPECS).version,
+          version: CLI_VERSION,
+          command: "version",
+          data: { version: MAYA_VERSION },
+        }));
+      } else {
+        console.log(MAYA_VERSION);
+      }
+      return 0;
+    }
+
+    const parsed = parseCommand(argv, COMMAND_SPECS, GLOBAL_OPTIONS);
+
+    if (!parsed) {
+      const text = renderRootHelp(COMMAND_SPECS, GLOBAL_OPTIONS);
+      if (json) {
+        console.log(JSON.stringify({
+          ok: true,
+          version: buildCapabilities(COMMAND_SPECS, GLOBAL_OPTIONS).version,
           command: "help",
           data: { text },
         }));
@@ -44,7 +61,7 @@ export async function runCli(argv: string[]): Promise<number> {
 
     if (parsed.help) {
       printSuccess(parsed, {
-        text: renderCommandHelp(parsed.spec),
+        text: renderCommandHelp(parsed.spec, GLOBAL_OPTIONS),
         data: {
           name: `maya ${parsed.spec.path.join(" ")}`,
           description: parsed.spec.description,

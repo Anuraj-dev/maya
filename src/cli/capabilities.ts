@@ -1,22 +1,38 @@
-import type { CommandSpec } from "./types.ts";
+import type { CommandSpec, GlobalOptionSpec } from "./types.ts";
 import { CLI_VERSION } from "./types.ts";
 
 export interface CapabilitiesContract {
   version: string;
+  globalOptions: Array<{ long: string; short?: string; description: string }>;
   commands: Array<{
     name: string;
     category: string;
     summary: string;
     description: string;
     args: Array<{ name: string; required: boolean; variadic: boolean }>;
-    options: Array<{ long: string; short?: string; type: string; description: string }>;
+    options: Array<{
+      long: string;
+      short?: string;
+      type: string;
+      description: string;
+      defaultValue?: boolean | string;
+      negates?: string;
+    }>;
     supportsJson: boolean;
   }>;
 }
 
-export function buildCapabilities(specs: CommandSpec[]): CapabilitiesContract {
+export function buildCapabilities(
+  specs: CommandSpec[],
+  globalOptions: GlobalOptionSpec[],
+): CapabilitiesContract {
   return {
     version: CLI_VERSION,
+    globalOptions: globalOptions.map(({ long, short, description }) => ({
+      long,
+      short,
+      description,
+    })),
     commands: [...specs]
       .sort((a, b) => a.path.join(" ").localeCompare(b.path.join(" ")))
       .map((spec) => ({
@@ -34,6 +50,8 @@ export function buildCapabilities(specs: CommandSpec[]): CapabilitiesContract {
           short: option.short,
           type: option.type,
           description: option.description,
+          defaultValue: option.defaultValue,
+          negates: option.negates,
         })),
         supportsJson: true,
       })),
