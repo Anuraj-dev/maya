@@ -32,7 +32,7 @@ const FileEntrySchema = CommonEntrySchema.extend({
 
 const ToolEntrySchema = CommonEntrySchema.extend({
   filePath: z.string().min(1),
-  mcpTool: z.string().min(1),
+  mcpTool: z.string().min(1).nullable(),
   futureCliCommand: z.string().min(1).nullable(),
   dependencyGated: z.boolean().optional(),
 }).strict();
