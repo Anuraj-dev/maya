@@ -6,7 +6,8 @@ Use this map before searching the full repository.
 
 | Path | Responsibility |
 |---|---|
-| `src/index.ts` | Commander CLI and command dispatch |
+| `src/index.ts` | CLI entrypoint delegating into the declarative registry |
+| `src/cli/` | Declarative command specs, parser, help, capabilities, and JSON envelope |
 | `src/mcp/server.ts` | MCP stdio lifecycle, tool exposure, safety/audit wrapper, image conversion |
 | `src/mcp/setup.ts` | Claude Code/Codex MCP registration |
 | `src/agent/loop.ts` | Legacy in-process agent loop used outside MCP |
@@ -73,7 +74,6 @@ Use this map before searching the full repository.
 
 ## Tests
 
-Tests are colocated under `src/**/*.test.ts`. Existing coverage focuses on effort selection,
-clipboard command parsing, reminders/processes, safety/audit/retention, TTS helpers, and the future
-voice-turn reducer. There are no CLI process-contract tests, MCP protocol tests, browser tool tests, or
-docs-index validation tests yet.
+Tests are colocated under `src/**/*.test.ts`. Existing coverage includes CLI process-contract tests,
+effort selection, clipboard command parsing, reminders/processes, safety/audit/retention, TTS helpers,
+and the future voice-turn reducer. There are still no browser tool tests or docs-index validation tests.
