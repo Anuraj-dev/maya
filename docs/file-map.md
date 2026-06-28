@@ -76,4 +76,5 @@ Use this map before searching the full repository.
 
 Tests are colocated under `src/**/*.test.ts`. Existing coverage includes CLI process-contract tests,
 effort selection, clipboard command parsing, reminders/processes, safety/audit/retention, TTS helpers,
-and the future voice-turn reducer. There are still no browser tool tests or docs-index validation tests.
+and the future voice-turn reducer. Browser tool coverage is still absent; docs-index validation now
+lives in `src/docs-index/validate.test.ts`.

@@ -9,6 +9,9 @@
 | `docs-index/commands.json` | Existing and planned CLI commands | `maya find`, `maya --help` support |
 | `docs-index/index.md` | Human-readable index overview | agents and reviewers |
 
+Catalog changes are checked through `src/docs-index/validate.ts`. All three catalogs share one
+schema version, use unique names, reference existing repository paths, and stay sorted by name.
+
 Each JSON file has `schemaVersion: 1`. Version the schema before making breaking field changes.
 
 ## Query now
