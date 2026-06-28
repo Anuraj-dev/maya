@@ -5,12 +5,12 @@
     {
       "name": "CLI entrypoint",
       "category": "entrypoint",
-      "description": "Commander program and all currently implemented CLI commands.",
+      "description": "CLI entrypoint delegating into the declarative command registry.",
       "filePath": "src/index.ts",
       "relatedDocsPath": "docs/cli-vision.md",
       "relatedMcpTool": null,
       "futureCliCommand": "maya --help",
-      "keywords": ["cli", "commander", "command", "entrypoint", "bin"],
+      "keywords": ["cli", "command", "entrypoint", "bin", "registry"],
       "whenToUse": "Open when adding or tracing a Maya command."
     },
     {

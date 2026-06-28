@@ -13,7 +13,7 @@ MCP tool-calls should shell out to `maya …` commands instead. See ADR 0002.
 
 ## Existing CLI
 
-Maya is not starting from zero. `src/index.ts` already uses Commander and exposes:
+Maya is not starting from zero. `src/index.ts` already exposes:
 
 | Command | Purpose |
 |---|---|
