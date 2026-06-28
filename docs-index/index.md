@@ -22,13 +22,9 @@ keywords, and guidance for when an agent should use the entry.
   are roadmap items, not current tools.
 - Source code remains the behavioral source of truth.
 
-## Validate manually
+## Validation
 
-```sh
-bun -e 'for (const p of ["files", "tools", "commands"]) await Bun.file(`docs-index/${p}.json`).json()'
-bun -e 'const x=await Bun.file("docs-index/tools.json").json(); const n=x.tools.map((v)=>v.name); console.log(n.filter((v,i)=>n.indexOf(v)!==i))'
-bun -e 'const x=await Bun.file("docs-index/files.json").json(); for (const v of x.files) if (!(await Bun.file(v.filePath).exists())) console.log(`missing: ${v.filePath}`)'
-```
-
-The future `maya docs index --check` command should automate JSON parsing, duplicate detection, path
-existence, registered-tool coverage, and deterministic ordering checks.
+`src/docs-index/validate.ts` validates JSON schema versions, duplicate names, referenced paths,
+`buildTools()` coverage, dependency-gated markers, and deterministic name ordering. Its public seam
+is covered by `src/docs-index/validate.test.ts`; a future `maya docs index --check` command can call
+the same module.
