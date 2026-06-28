@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 
 export interface RegisteredTool {
   name: string;
@@ -13,10 +14,50 @@ interface CatalogEntry {
   dependencyGated?: boolean;
 }
 
-interface Catalog {
-  schemaVersion: number;
-  [collection: string]: unknown;
-}
+const CommonEntrySchema = z.object({
+  name: z.string().min(1),
+  category: z.string().min(1),
+  description: z.string().min(1),
+  filePath: z.string().min(1).nullable(),
+  relatedDocsPath: z.string().min(1),
+  keywords: z.array(z.string().min(1)).min(1),
+  whenToUse: z.string().min(1),
+});
+
+const FileEntrySchema = CommonEntrySchema.extend({
+  filePath: z.string().min(1),
+  relatedMcpTool: z.string().min(1).nullable(),
+  futureCliCommand: z.string().min(1).nullable(),
+}).strict();
+
+const ToolEntrySchema = CommonEntrySchema.extend({
+  filePath: z.string().min(1),
+  mcpTool: z.string().min(1),
+  futureCliCommand: z.string().min(1).nullable(),
+  dependencyGated: z.boolean().optional(),
+}).strict();
+
+const CommandEntrySchema = CommonEntrySchema.extend({
+  status: z.enum(["implemented", "planned"]),
+}).strict();
+
+const CatalogSchemas = {
+  files: z.object({
+    schemaVersion: z.literal(1),
+    description: z.string().min(1),
+    files: z.array(FileEntrySchema),
+  }).strict(),
+  tools: z.object({
+    schemaVersion: z.literal(1),
+    description: z.string().min(1),
+    tools: z.array(ToolEntrySchema),
+  }).strict(),
+  commands: z.object({
+    schemaVersion: z.literal(1),
+    description: z.string().min(1),
+    commands: z.array(CommandEntrySchema),
+  }).strict(),
+};
 
 export interface DocsIndex {
   schemaVersion: number;
@@ -30,13 +71,13 @@ function readCatalog(
   name: "files" | "tools" | "commands",
 ): { schemaVersion: number; entries: CatalogEntry[] } {
   const path = join(rootDir, "docs-index", `${name}.json`);
-  const catalog = JSON.parse(readFileSync(path, "utf8")) as Catalog;
-  if (!Number.isInteger(catalog.schemaVersion) || catalog.schemaVersion < 1) {
-    throw new Error(`${name}.json has an invalid schemaVersion`);
+  const parsed = CatalogSchemas[name].safeParse(JSON.parse(readFileSync(path, "utf8")));
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new Error(`${name}.json schema validation failed at ${issue?.path.join(".") || "root"}`);
   }
-  const entries = catalog[name];
-  if (!Array.isArray(entries)) throw new Error(`${name}.json must contain a ${name} array`);
-  return { schemaVersion: catalog.schemaVersion, entries: entries as CatalogEntry[] };
+  const data = parsed.data as Record<string, unknown>;
+  return { schemaVersion: 1, entries: data[name] as CatalogEntry[] };
 }
 
 function assertUnique(name: string, entries: CatalogEntry[]): void {
@@ -66,7 +107,7 @@ function assertPaths(rootDir: string, entries: CatalogEntry[]): void {
   }
 }
 
-export function validateDocsIndex(rootDir: string, registeredTools: RegisteredTool[] = []): DocsIndex {
+export function validateDocsIndex(rootDir: string, registeredTools: RegisteredTool[]): DocsIndex {
   const fileCatalog = readCatalog(rootDir, "files");
   const toolCatalog = readCatalog(rootDir, "tools");
   const commandCatalog = readCatalog(rootDir, "commands");
