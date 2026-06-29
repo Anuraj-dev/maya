@@ -29,5 +29,5 @@ the behavioral source of truth and update the indexes when a tool, command, or m
 ## Current boundary
 
 This documentation cycle does not add the planned CLI commands, extract a core layer, or change MCP
-behavior. Existing CLI commands remain `start`, `stop`, `status`, `live`, `ping`, `ask`, `mcp`, and
-`setup`.
+behavior. Existing CLI commands remain `start`, `stop`, `status`, `live`, `ping`, `ask`, `serve`,
+`mcp`, and `setup`.

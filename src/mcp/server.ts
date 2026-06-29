@@ -12,7 +12,8 @@
  * tool. The only hard gate left is payments — which the agent must opt into with confirm:true,
  * since a charge is neither logged-away nor undoable.
  *
- * Usage:  maya mcp          (runs until killed — the agent connects over stdio)
+ * Usage:  maya serve        (runs until killed — the agent connects over stdio)
+ *         maya mcp          (compatibility alias)
  */
 
 import { existsSync } from "node:fs";
@@ -69,6 +70,14 @@ export async function handleCallTool(
   }
 
   return { content: [{ type: "text", text: outcome.text }] };
+}
+
+export function listMcpTools(tools: Record<string, MayaTool>): Tool[] {
+  return Object.values(tools).map((t) => ({
+    name: t.spec.name,
+    description: t.spec.description,
+    inputSchema: t.spec.inputSchema as Tool["inputSchema"],
+  }));
 }
 
 const INSTRUCTIONS = `Maya is the BODY of a voice assistant on Raja's Linux machine; YOU are her brain.
@@ -184,11 +193,7 @@ export async function startMcpServer(): Promise<void> {
   };
 
   // Map to MCP Tool format (inputSchema field name matches exactly).
-  const mcpTools: Tool[] = Object.values(tools).map((t) => ({
-    name: t.spec.name,
-    description: t.spec.description,
-    inputSchema: t.spec.inputSchema as Tool["inputSchema"],
-  }));
+  const mcpTools = listMcpTools(tools);
 
   const server = new Server(
     { name: "maya", version: "0.1.0" },
