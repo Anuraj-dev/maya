@@ -1,69 +1,27 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ConfigSchema } from "../config/index.ts";
 import { buildTools } from "../tools/index.ts";
+import {
+  createDocsIndexFixture,
+  type DocsIndexFixture,
+  VALID_INDEX_ENTRIES,
+} from "./__tests__/fixture.ts";
 import { validateDocsIndex, type RegisteredTool } from "./validate.ts";
 
-const roots: string[] = [];
-
-const validEntries = {
-  files: [{
-    name: "files-entry",
-    category: "test",
-    description: "Fixture file entry.",
-    filePath: "exists.ts",
-    relatedDocsPath: "exists.ts",
-    relatedMcpTool: null,
-    futureCliCommand: null,
-    keywords: ["fixture"],
-    whenToUse: "Use in tests.",
-  }],
-  tools: [{
-    name: "tools-entry",
-    category: "test",
-    description: "Fixture tool entry.",
-    filePath: "exists.ts",
-    relatedDocsPath: "exists.ts",
-    mcpTool: "tools-entry",
-    futureCliCommand: null,
-    keywords: ["fixture"],
-    whenToUse: "Use in tests.",
-  }],
-  commands: [{
-    name: "commands-entry",
-    category: "test",
-    status: "planned",
-    description: "Fixture command entry.",
-    filePath: null,
-    relatedDocsPath: "exists.ts",
-    keywords: ["fixture"],
-    whenToUse: "Use in tests.",
-  }],
-};
+const fixtures: DocsIndexFixture[] = [];
 
 function fixture(
   overrides: Partial<Record<"files" | "tools" | "commands", unknown[]>> = {},
   schemaVersion = 1,
 ): string {
-  const root = mkdtempSync(join(tmpdir(), "maya-docs-index-"));
-  roots.push(root);
-  mkdirSync(join(root, "docs-index"));
-  writeFileSync(join(root, "exists.ts"), "");
-  for (const name of ["files", "tools", "commands"] as const) {
-    const entries = overrides[name] ?? validEntries[name];
-    writeFileSync(join(root, "docs-index", `${name}.json`), JSON.stringify({
-      schemaVersion,
-      description: `${name} fixture`,
-      [name]: entries,
-    }));
-  }
-  return root;
+  const created = createDocsIndexFixture(overrides, schemaVersion);
+  fixtures.push(created);
+  return created.root;
 }
 
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const created of fixtures.splice(0)) created.cleanup();
 });
 
 describe("docs-index validation", () => {
@@ -73,21 +31,21 @@ describe("docs-index validation", () => {
 
   test("unsupported versions and malformed entries are rejected", () => {
     expect(() => validateDocsIndex(fixture({}, 2), [])).toThrow("schema validation failed");
-    const malformed = [{ ...validEntries.files[0]!, category: 42 }];
+    const malformed = [{ ...VALID_INDEX_ENTRIES.files[0]!, category: 42 }];
     expect(() => validateDocsIndex(fixture({ files: malformed }), [])).toThrow("files.json schema validation failed");
   });
 
   test("duplicate tool and command names are rejected", () => {
-    const duplicateTools = validEntries.tools.map((entry) => ({ ...entry, name: "same" }));
+    const duplicateTools = VALID_INDEX_ENTRIES.tools.map((entry) => ({ ...entry, name: "same" }));
     duplicateTools.push({ ...duplicateTools[0]! });
-    const duplicateCommands = validEntries.commands.map((entry) => ({ ...entry, name: "same" }));
+    const duplicateCommands = VALID_INDEX_ENTRIES.commands.map((entry) => ({ ...entry, name: "same" }));
     duplicateCommands.push({ ...duplicateCommands[0]! });
     expect(() => validateDocsIndex(fixture({ tools: duplicateTools }), [])).toThrow("duplicate name: same");
     expect(() => validateDocsIndex(fixture({ commands: duplicateCommands }), [])).toThrow("duplicate name: same");
   });
 
   test("every referenced repository path must exist", () => {
-    const missing = [{ ...validEntries.files[0]!, relatedDocsPath: "docs/missing.md" }];
+    const missing = [{ ...VALID_INDEX_ENTRIES.files[0]!, relatedDocsPath: "docs/missing.md" }];
     expect(() => validateDocsIndex(fixture({ files: missing }), [])).toThrow("references missing path: docs/missing.md");
   });
 
@@ -120,8 +78,8 @@ describe("docs-index validation", () => {
 
   test("catalog entries must use deterministic name ordering", () => {
     const commands = [
-      { ...validEntries.commands[0]!, name: "zeta" },
-      { ...validEntries.commands[0]!, name: "alpha" },
+      { ...VALID_INDEX_ENTRIES.commands[0]!, name: "zeta" },
+      { ...VALID_INDEX_ENTRIES.commands[0]!, name: "alpha" },
     ];
     expect(() => validateDocsIndex(fixture({ commands }), [])).toThrow("commands.json entries must be sorted by name");
   });
