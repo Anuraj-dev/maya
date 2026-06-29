@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { EXPECTED_CAPABILITIES } from "./cli/__tests__/capabilities-fixture.ts";
@@ -11,7 +11,7 @@ function createDoctorHome(options: {
   claudeSkill?: boolean;
   codexSkill?: boolean;
 } = {}): string {
-  const home = Bun.mkdtempSync(join(tmpdir(), "maya-doctor-test-"));
+  const home = mkdtempSync(join(tmpdir(), "maya-doctor-test-"));
   mkdirSync(join(home, ".config", "maya"), { recursive: true });
 
   if (options.config !== undefined) {
