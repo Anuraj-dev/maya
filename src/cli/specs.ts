@@ -1,4 +1,5 @@
 import { buildCapabilities, renderCapabilitiesText } from "./capabilities.ts";
+import { runDoctor } from "./doctor.ts";
 import { runLegacyCommand } from "./legacy.ts";
 import {
   MCP_ALIAS_DESCRIPTION,
@@ -27,6 +28,13 @@ const providerOption = {
 export const COMMAND_SPECS: CommandSpec[] = [
   ...TERMINAL_COMMAND_SPECS,
   ...TOOL_COMMAND_SPECS,
+  {
+    path: ["doctor"],
+    category: "diagnostic",
+    summary: "Report Maya install and dependency health.",
+    description: "Check Maya's core install, config, agent skill, and optional desktop dependencies.",
+    run: async () => runDoctor(),
+  },
   {
     path: ["start"],
     category: "runtime",

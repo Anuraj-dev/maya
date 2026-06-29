@@ -32,6 +32,15 @@ export const EXPECTED_CAPABILITIES = {
       supportsJson: true,
     },
     {
+      name: "maya doctor",
+      category: "diagnostic",
+      summary: "Report Maya install and dependency health.",
+      description: "Check Maya's core install, config, agent skill, and optional desktop dependencies.",
+      args: [],
+      options: [],
+      supportsJson: true,
+    },
+    {
       name: "maya live",
       category: "legacy-agent",
       summary: "Run one command with the live overlay bridge.",
