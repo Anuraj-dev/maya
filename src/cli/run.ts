@@ -1,8 +1,8 @@
 import { buildCapabilities } from "./capabilities.ts";
 import { printError, printSuccess } from "./envelope.ts";
-import { renderCommandHelp, renderRootHelp } from "./help.ts";
+import { renderCommandHelp, renderGroupHelp, renderRootHelp } from "./help.ts";
 import { COMMAND_SPECS, GLOBAL_OPTIONS } from "./specs.ts";
-import { parseCommand, parseGlobalOptions } from "./parser.ts";
+import { findCommandGroup, parseCommand, parseGlobalOptions } from "./parser.ts";
 import { executionFailed } from "./errors.ts";
 import { CLI_VERSION, MAYA_VERSION, type CliError } from "./types.ts";
 
@@ -38,6 +38,22 @@ export async function runCli(argv: string[]): Promise<number> {
         }));
       } else {
         console.log(MAYA_VERSION);
+      }
+      return 0;
+    }
+
+    const groupPath = findCommandGroup(argv, COMMAND_SPECS, GLOBAL_OPTIONS);
+    if (groupPath) {
+      const text = renderGroupHelp(groupPath, COMMAND_SPECS, GLOBAL_OPTIONS);
+      if (json) {
+        console.log(JSON.stringify({
+          ok: true,
+          version: buildCapabilities(COMMAND_SPECS, GLOBAL_OPTIONS).version,
+          command: groupPath.join(" "),
+          data: { text },
+        }));
+      } else {
+        console.log(text);
       }
       return 0;
     }

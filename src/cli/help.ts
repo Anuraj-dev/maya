@@ -47,8 +47,22 @@ export function renderRootHelp(specs: CommandSpec[], globalOptions: GlobalOption
     );
     if (commands.length === 0) continue;
     lines.push(`${CATEGORY_TITLES[category]}:`);
-    for (const spec of commands) {
-      lines.push(`  ${formatUsage(spec)}  ${spec.summary}`);
+    const nestedGroups = new Map<string, CommandSpec[]>();
+    for (const spec of commands.filter((candidate) => candidate.path.length > 1)) {
+      const name = spec.path[0]!;
+      nestedGroups.set(name, [...(nestedGroups.get(name) ?? []), spec]);
+    }
+    const entries = [
+      ...commands
+        .filter((spec) => spec.path.length === 1)
+        .map((spec) => ({ name: spec.path[0]!, text: `${formatUsage(spec)}  ${spec.summary}` })),
+      ...[...nestedGroups.entries()].map(([name, children]) => ({
+        name,
+        text: `maya ${name} <command>  ${children.length} ${children.length === 1 ? "command" : "commands"}.`,
+      })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
+      lines.push(`  ${entry.text}`);
     }
     lines.push("");
   }
@@ -67,6 +81,28 @@ export function renderCommandHelp(spec: CommandSpec, globalOptions: GlobalOption
     lines.push("", "Options:", ...options);
   }
   lines.push("", "Global options:");
+  for (const option of globalOptions) {
+    lines.push(`  ${[option.short, option.long].filter(Boolean).join(", ")}  ${option.description}`);
+  }
+  return lines.join("\n");
+}
+
+export function renderGroupHelp(
+  path: string[],
+  specs: CommandSpec[],
+  globalOptions: GlobalOptionSpec[],
+): string {
+  const commands = specs
+    .filter((spec) => spec.path.length > path.length && path.every((segment, index) => spec.path[index] === segment))
+    .sort((a, b) => a.path.join(" ").localeCompare(b.path.join(" ")));
+  const lines = [
+    `maya ${path.join(" ")} <command>`,
+    "",
+    "Commands:",
+    ...commands.map((spec) => `  ${formatUsage(spec)}  ${spec.summary}`),
+    "",
+    "Global options:",
+  ];
   for (const option of globalOptions) {
     lines.push(`  ${[option.short, option.long].filter(Boolean).join(", ")}  ${option.description}`);
   }
