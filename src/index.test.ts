@@ -645,9 +645,9 @@ describe("S7 — docs-index find command", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe("");
       expect(payload.data.type).toBe("tool");
-      expect(payload.data.results).toEqual([
-        { type: "tool", name: "beta-browser" },
-        { type: "tool", name: "alpha" },
+      expect(payload.data.results.map((entry) => `${entry.type}:${entry.name}`)).toEqual([
+        "tool:beta-browser",
+        "tool:alpha",
       ]);
     } finally {
       fixture.cleanup();
@@ -678,12 +678,12 @@ describe("S7 — docs-index find command", () => {
       expect(text.stdout).toBe([
         "tool  beta-browser  src/tools/beta-browser.ts  Use for browser keyword matches.",
         "file  zeta-browser-notes  src/zeta-browser-notes.ts  Use when browser notes are enough.",
-        "2 of 5 results for \"browser\"",
+        "2 of 6 results for \"browser\"",
         "…[truncated to 2 results]",
         "",
       ].join("\n"));
       expect(payload.data.limit).toBe(2);
-      expect(payload.data.total).toBe(5);
+      expect(payload.data.total).toBe(6);
       expect(payload.data.truncated).toBe(true);
       expect(payload.data.results).toEqual([
         { type: "tool", name: "beta-browser" },
