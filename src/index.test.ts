@@ -685,9 +685,9 @@ describe("S7 — docs-index find command", () => {
       expect(payload.data.limit).toBe(2);
       expect(payload.data.total).toBe(6);
       expect(payload.data.truncated).toBe(true);
-      expect(payload.data.results).toEqual([
-        { type: "tool", name: "beta-browser" },
-        { type: "file", name: "zeta-browser-notes" },
+      expect(payload.data.results.map((entry) => `${entry.type}:${entry.name}`)).toEqual([
+        "tool:beta-browser",
+        "file:zeta-browser-notes",
       ]);
     } finally {
       fixture.cleanup();
