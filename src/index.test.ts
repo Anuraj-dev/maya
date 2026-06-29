@@ -1,8 +1,35 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { EXPECTED_CAPABILITIES } from "./cli/__tests__/capabilities-fixture.ts";
 import type { CapabilitiesContract } from "./cli/capabilities.ts";
 import { runMayaCli } from "./cli/__tests__/process.ts";
+
+function createDoctorHome(options: {
+  config?: string;
+  claudeSkill?: boolean;
+  codexSkill?: boolean;
+} = {}): string {
+  const home = Bun.mkdtempSync(join(tmpdir(), "maya-doctor-test-"));
+  mkdirSync(join(home, ".config", "maya"), { recursive: true });
+
+  if (options.config !== undefined) {
+    writeFileSync(join(home, ".config", "maya", "config.json"), options.config);
+  }
+
+  if (options.claudeSkill) {
+    mkdirSync(join(home, ".claude", "skills", "maya"), { recursive: true });
+    writeFileSync(join(home, ".claude", "skills", "maya", "SKILL.md"), "# maya\n");
+  }
+
+  if (options.codexSkill) {
+    mkdirSync(join(home, ".codex", "skills", "maya"), { recursive: true });
+    writeFileSync(join(home, ".codex", "skills", "maya", "SKILL.md"), "# maya\n");
+  }
+
+  return home;
+}
 
 describe("S1 — CLI process boundary", () => {
   test("maya --help exits 0 with grouped concise text", async () => {
@@ -84,6 +111,163 @@ describe("S1 — CLI process boundary", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe('{"command":"open github.com","options":{"provider":"gemini"}}\n');
     expect(result.stderr).toBe("");
+  });
+
+  test("maya doctor fails when a required agent skill is missing", async () => {
+    const home = createDoctorHome({
+      config: JSON.stringify({
+        anthropicApiKey: "top-secret-anthropic",
+        geminiApiKey: "top-secret-gemini",
+      }),
+      claudeSkill: true,
+      codexSkill: false,
+    });
+
+    try {
+      const result = await runMayaCli(["doctor", "--json"], {
+        home,
+        env: { PATH: "" },
+      });
+      const payload = result.parseEnvelope<{
+        ok: boolean;
+        version: string;
+        command: string;
+        data: {
+          ok: boolean;
+          summary: { requiredFailed: number; optionalFailed: number };
+          checks: Array<{
+            id: string;
+            ok: boolean;
+            severity: string;
+            details?: Record<string, unknown>;
+            nextStep?: string;
+          }>;
+        };
+      }>();
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toBe("");
+      expect(payload.ok).toBe(true);
+      expect(payload.command).toBe("doctor");
+      expect(payload.data.ok).toBe(false);
+      expect(payload.data.summary.requiredFailed).toBeGreaterThan(0);
+      expect(payload.data.checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "skill-claude",
+            ok: true,
+            severity: "required",
+          }),
+          expect.objectContaining({
+            id: "skill-codex",
+            ok: false,
+            severity: "required",
+            nextStep: expect.stringContaining("maya setup codex"),
+          }),
+        ]),
+      );
+      expect(JSON.stringify(payload)).not.toContain("top-secret-anthropic");
+      expect(JSON.stringify(payload)).not.toContain("top-secret-gemini");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("maya doctor keeps optional dependency failures non-fatal when required checks pass", async () => {
+    const home = createDoctorHome({
+      config: JSON.stringify({
+        anthropicApiKey: "top-secret-anthropic",
+      }),
+      claudeSkill: true,
+      codexSkill: true,
+    });
+
+    try {
+      const result = await runMayaCli(["doctor", "--json"], {
+        home,
+        env: { PATH: "" },
+      });
+      const payload = result.parseEnvelope<{
+        data: {
+          ok: boolean;
+          summary: { requiredFailed: number; optionalFailed: number };
+          checks: Array<{ id: string; ok: boolean; severity: string }>;
+        };
+      }>();
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.data.ok).toBe(true);
+      expect(payload.data.summary.requiredFailed).toBe(0);
+      expect(payload.data.summary.optionalFailed).toBeGreaterThan(0);
+      expect(payload.data.checks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "playwright",
+            severity: "optional",
+          }),
+          expect.objectContaining({
+            id: "paplay",
+            ok: false,
+            severity: "optional",
+          }),
+        ]),
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("maya doctor text and json output stay deterministic for the same home", async () => {
+    const home = createDoctorHome({
+      config: JSON.stringify({
+        anthropicApiKey: "top-secret-anthropic",
+        brain: { provider: "gemini" },
+      }),
+      claudeSkill: true,
+      codexSkill: true,
+    });
+
+    try {
+      const firstJson = await runMayaCli(["doctor", "--json"], {
+        home,
+        env: { PATH: "" },
+      });
+      const secondJson = await runMayaCli(["doctor", "--json"], {
+        home,
+        env: { PATH: "" },
+      });
+      const text = await runMayaCli(["doctor"], {
+        home,
+        env: { PATH: "" },
+      });
+      const payload = firstJson.parseEnvelope<{
+        data: {
+          checks: Array<{
+            id: string;
+            details?: {
+              anthropicApiKey?: string | null;
+              geminiApiKey?: string | null;
+              brainProvider?: string;
+            };
+          }>;
+        };
+      }>();
+      const configCheck = payload.data.checks.find((check) => check.id === "config");
+
+      expect(firstJson.exitCode).toBe(0);
+      expect(secondJson.exitCode).toBe(0);
+      expect(text.exitCode).toBe(0);
+      expect(secondJson.stdout).toBe(firstJson.stdout);
+      expect(text.stdout).toContain("Maya doctor: OK");
+      expect(text.stdout).toContain("Required (");
+      expect(text.stdout).toContain("Optional (");
+      expect(text.stdout).not.toContain("top-secret-anthropic");
+      expect(configCheck?.details?.anthropicApiKey).toBe("[redacted]");
+      expect(configCheck?.details?.geminiApiKey).toBeNull();
+      expect(configCheck?.details?.brainProvider).toBe("gemini");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   test("unknown command exits non-zero with invalid_command and a suggestion", async () => {

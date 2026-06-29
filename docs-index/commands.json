@@ -82,18 +82,19 @@
     {
       "name": "maya doctor",
       "category": "diagnostic",
-      "status": "planned",
-      "description": "Report installation, config, platform dependency, index, and MCP launch health.",
-      "filePath": null,
+      "status": "implemented",
+      "description": "Report core install, config, agent skill, and optional desktop dependency health.",
+      "filePath": "src/cli/doctor.ts",
       "relatedDocsPath": "docs/cli-vision.md",
       "keywords": [
         "doctor",
         "health",
         "dependency",
         "config",
-        "diagnostic"
+        "diagnostic",
+        "skill"
       ],
-      "whenToUse": "Use before debugging Maya or when an action command cannot start."
+      "whenToUse": "Use before debugging Maya or when you need a deterministic install and dependency report."
     },
     {
       "name": "maya files map [query]",
