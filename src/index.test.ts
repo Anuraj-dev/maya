@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import { EXPECTED_CAPABILITIES } from "./cli/__tests__/capabilities-fixture.ts";
 import { runMayaCli } from "./cli/__tests__/process.ts";
 
@@ -9,7 +10,31 @@ describe("S1 — CLI process boundary", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("maya <command>");
     expect(result.stdout).toContain("Runtime:");
+    expect(result.stdout).toContain("maya proc <command>");
+    expect(result.stdout).toContain("maya terminal <command>");
+    expect(result.stdout).not.toContain("maya proc start");
     expect(result.stdout).toContain("Discovery:");
+    expect(result.stderr).toBe("");
+  });
+
+  test("maya terminal --help lists only terminal commands", async () => {
+    const result = await runMayaCli(["terminal", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("maya terminal <command>");
+    expect(result.stdout).toContain("maya terminal run");
+    expect(result.stdout).not.toContain("maya proc start");
+    expect(result.stderr).toBe("");
+  });
+
+  test("help does not load runtime-heavy command dependencies", async () => {
+    const result = await runMayaCli(
+      ["terminal", "--help"],
+      { entry: join(import.meta.dir, "cli/__tests__/lazy-help-fixture.ts") },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("maya terminal run");
     expect(result.stderr).toBe("");
   });
 
@@ -18,6 +43,25 @@ describe("S1 — CLI process boundary", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe("0.0.0\n");
+    expect(result.stderr).toBe("");
+  });
+
+  test("maya status preserves the existing daemon-status output", async () => {
+    const result = await runMayaCli(["status"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("maya: not running.\n");
+    expect(result.stderr).toBe("");
+  });
+
+  test("maya ask forwards the unchanged prompt and provider to runOnce", async () => {
+    const result = await runMayaCli(
+      ["ask", "open", "github.com", "--provider", "gemini"],
+      { entry: join(import.meta.dir, "cli/__tests__/ask-fixture.ts") },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('{"command":"open github.com","options":{"provider":"gemini"}}\n');
     expect(result.stderr).toBe("");
   });
 

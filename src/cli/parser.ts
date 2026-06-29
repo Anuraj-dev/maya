@@ -34,6 +34,28 @@ export function parseGlobalOptions(
   };
 }
 
+export function findCommandGroup(
+  argv: string[],
+  specs: CommandSpec[],
+  globalOptions: GlobalOptionSpec[],
+): string[] | null {
+  const globals = parseGlobalOptions(argv, globalOptions);
+  if (!globals.help) return null;
+
+  const boundary = argv.indexOf("--");
+  const optionTokens = boundary === -1 ? argv : argv.slice(0, boundary);
+  const path = optionTokens.filter(
+    (token) => !globalOptions.some((option) => matchesGlobalOption(token, option)),
+  );
+  if (path.length === 0 || path.some((token) => token.startsWith("-"))) return null;
+
+  return specs.some(
+    (spec) => spec.path.length > path.length && path.every((segment, index) => spec.path[index] === segment),
+  )
+    ? path
+    : null;
+}
+
 export function parseCommand(
   argv: string[],
   specs: CommandSpec[],
