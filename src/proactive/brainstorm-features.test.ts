@@ -10,7 +10,7 @@
  *      build each slice. A todo is a promise, not a failure.
  */
 import { expect, test, describe } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -188,15 +188,85 @@ describe("ProcessManager", () => {
     expect(await mgr.logs(p.id)).toContain("hello-maya");
   });
 
+  test("independent managers preserve distinct processes in one shared directory", async () => {
+    const dir = newDir();
+    const first = createProcessManager({ dir });
+    const second = createProcessManager({ dir });
+    const a = first.start({ command: "sleep 30", name: "first" });
+    const b = second.start({ command: "sleep 30", name: "second" });
+
+    try {
+      expect(a.id).not.toBe(b.id);
+      const reloaded = createProcessManager({ dir });
+      expect(reloaded.list().map((process) => process.id)).toEqual(expect.arrayContaining([a.id, b.id]));
+    } finally {
+      for (const managed of [a, b]) {
+        try {
+          process.kill(-managed.pid, "SIGKILL");
+        } catch {
+          try {
+            process.kill(managed.pid, "SIGKILL");
+          } catch {
+            // Already exited.
+          }
+        }
+      }
+    }
+  });
+
   test("stop() terminates a long-running process; stopAll sweeps", async () => {
     const mgr = createProcessManager({ dir: newDir() });
     const p = mgr.start({ command: "sleep 30" });
     expect(mgr.get(p.id)?.status).toBe("running");
-    expect(mgr.stop(p.id)).toBe(true);
+    expect(await mgr.stop(p.id)).toBe(true);
     while (mgr.get(p.id)?.status === "running") await Bun.sleep(15);
     expect(mgr.get(p.id)?.status).toBe("exited");
-    expect(mgr.stop(p.id)).toBe(false); // already exited
+    expect(await mgr.stop(p.id)).toBe(false); // already exited
     expect(mgr.stopAll()).toBe(0); // nothing left running
+  });
+
+  test("a TERM-resistant process remains running and can still be force-stopped", async () => {
+    const mgr = createProcessManager({ dir: newDir() });
+    const p = mgr.start({ command: "trap '' TERM; while :; do sleep 1; done", name: "term-resistant" });
+
+    try {
+      await Bun.sleep(100);
+      expect(await mgr.stop(p.id)).toBe(false);
+      expect(mgr.get(p.id)?.status).toBe("running");
+
+      expect(await mgr.stop(p.id, "SIGKILL")).toBe(true);
+      expect(mgr.get(p.id)?.status).toBe("exited");
+    } finally {
+      try {
+        process.kill(-p.pid, "SIGKILL");
+      } catch {
+        // Already exited.
+      }
+    }
+  });
+
+  test("stopAll ignores a stale record whose pid now identifies another process", () => {
+    const dir = newDir();
+    const owner = createProcessManager({ dir });
+    const p = owner.start({ command: "sleep 30", name: "pid-reuse-fixture" });
+    const metadataPath = join(dir, `${p.id}.process.json`);
+    const stale = JSON.parse(readFileSync(metadataPath, "utf8")) as ManagedProcess;
+    stale.startToken = "different-process-start-token";
+    stale.updatedAt = (stale.updatedAt ?? Date.now()) + 1;
+    writeFileSync(metadataPath, JSON.stringify(stale, null, 2));
+
+    try {
+      const reloaded = createProcessManager({ dir });
+      expect(reloaded.stopAll()).toBe(0);
+      expect(reloaded.get(p.id)?.status).toBe("exited");
+      expect(() => process.kill(p.pid, 0)).not.toThrow();
+    } finally {
+      try {
+        process.kill(-p.pid, "SIGKILL");
+      } catch {
+        // Already exited.
+      }
+    }
   });
 
   test("rejects an empty command", () => {

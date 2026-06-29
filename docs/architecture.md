@@ -95,12 +95,17 @@ The sensing module also implements clipboard access and active-window context.
 ## Terminal and process control
 
 `shell_run` in `src/tools/shell.ts` executes `/bin/sh -c`, has a 30-second timeout, and truncates
-combined output at 8,000 characters. The MCP adapter applies catastrophic-command classification and
-auditing around it.
+combined output at 8,000 characters. `maya terminal run <command...>` and MCP both route it through
+the shared `runTool` catastrophic-command gate and audit path.
 
 Long-running commands use `proc_start`, `proc_list`, `proc_logs`, and `proc_stop` from
-`src/tools/process.ts`. Their stateful implementation is `src/system/processes.ts`; the MCP server
-constructs one process manager per server session and injects it into `buildTools()`.
+`src/tools/process.ts`. The `maya proc start/list/logs/stop` adapters route those tools through
+`runTool`. Their implementation in `src/system/processes.ts` persists detached-process metadata and
+logs below `MAYA_DIR/proc`, so separate CLI calls and restarted MCP sessions can list, tail, and stop
+the same process. Each process has a collision-safe id and its own atomically replaced metadata
+record, so independent CLI/MCP managers cannot overwrite one another. A stop is recorded as exited
+only after termination is observed; a TERM-resistant process remains force-stoppable. Log output
+defaults to 50 lines, caps requests at 500 lines and 8,000 characters, and explicitly marks truncation.
 
 There is currently no DNS-specific tool and no implemented general PC/system-state tool. `plan.md`
 describes `system_state`, audio, media, network, and desktop control as future work; tests contain TODOs

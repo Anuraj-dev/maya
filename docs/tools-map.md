@@ -28,15 +28,16 @@ profile directory.
 
 ## Terminal and processes
 
-| Tool | Source | Purpose | Future CLI direction |
+| Tool | Source | Purpose | CLI command |
 |---|---|---|---|
 | `shell_run` | `src/tools/shell.ts` | One-shot `/bin/sh -c`, 30-second limit | `maya terminal run` |
-| `proc_start` | `src/tools/process.ts` | Start managed background command | future `maya terminal start` |
-| `proc_list` | `src/tools/process.ts` | List session-managed processes | future `maya terminal list` |
-| `proc_logs` | `src/tools/process.ts` | Tail managed process log | future `maya terminal logs` |
-| `proc_stop` | `src/tools/process.ts` | Stop managed process | future `maya terminal stop` |
+| `proc_start` | `src/tools/process.ts` | Start managed background command | `maya proc start` |
+| `proc_list` | `src/tools/process.ts` | List persistent managed processes | `maya proc list` |
+| `proc_logs` | `src/tools/process.ts` | Tail bounded managed-process output | `maya proc logs` |
+| `proc_stop` | `src/tools/process.ts` | Stop a managed process group | `maya proc stop` |
 
-`src/system/processes.ts` is the underlying stateful process manager. MCP creates and injects it.
+`src/system/processes.ts` persists process metadata and log paths under `MAYA_DIR/proc`. CLI and MCP
+construct the same manager and execute the same tools through `runTool`.
 
 ## Files and apps
 

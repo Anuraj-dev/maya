@@ -10,6 +10,7 @@ export interface GlobalOptionSpec {
 
 export type CommandCategory =
   | "runtime"
+  | "action"
   | "legacy-agent"
   | "diagnostic"
   | "mcp"
