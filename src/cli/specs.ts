@@ -1,5 +1,12 @@
 import { buildCapabilities, renderCapabilitiesText } from "./capabilities.ts";
 import { runLegacyCommand } from "./legacy.ts";
+import {
+  MCP_ALIAS_DESCRIPTION,
+  MCP_ALIAS_SUMMARY,
+  runServeCommand,
+  SERVE_COMMAND_DESCRIPTION,
+  SERVE_COMMAND_SUMMARY,
+} from "./serve.ts";
 import { TERMINAL_COMMAND_SPECS } from "./terminal.ts";
 import { listCliToolSpecs, TOOL_COMMAND_SPECS } from "./tool.ts";
 import type { CommandSpec, GlobalOptionSpec } from "./types.ts";
@@ -100,14 +107,18 @@ export const COMMAND_SPECS: CommandSpec[] = [
     },
   },
   {
+    path: ["serve"],
+    category: "mcp",
+    summary: SERVE_COMMAND_SUMMARY,
+    description: SERVE_COMMAND_DESCRIPTION,
+    run: async ({ json }) => runServeCommand(json),
+  },
+  {
     path: ["mcp"],
     category: "mcp",
-    summary: "Start the MCP stdio server.",
-    description: "Start Maya as an MCP stdio server.",
-    run: async ({ json }) => {
-      const { startMcpServer } = await import("../mcp/server.ts");
-      return runLegacyCommand(() => startMcpServer(), json);
-    },
+    summary: MCP_ALIAS_SUMMARY,
+    description: MCP_ALIAS_DESCRIPTION,
+    run: async ({ json }) => runServeCommand(json),
   },
   {
     path: ["setup"],

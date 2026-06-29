@@ -11,6 +11,7 @@ describe("S1 — CLI process boundary", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("maya <command>");
     expect(result.stdout).toContain("Runtime:");
+    expect(result.stdout).toContain("maya serve");
     expect(result.stdout).toContain("maya proc <command>");
     expect(result.stdout).toContain("maya terminal <command>");
     expect(result.stdout).not.toContain("maya proc start");
@@ -25,6 +26,25 @@ describe("S1 — CLI process boundary", () => {
     expect(result.stdout).toContain("maya terminal <command>");
     expect(result.stdout).toContain("maya terminal run");
     expect(result.stdout).not.toContain("maya proc start");
+    expect(result.stderr).toBe("");
+  });
+
+  test("maya serve --help exposes the demoted optional MCP launcher", async () => {
+    const result = await runMayaCli(["serve", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("maya serve");
+    expect(result.stdout).toContain("optional MCP stdio server");
+    expect(result.stdout).toContain("shared runTool wrapper");
+    expect(result.stderr).toBe("");
+  });
+
+  test("maya mcp --help preserves the compatibility alias", async () => {
+    const result = await runMayaCli(["mcp", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("maya mcp");
+    expect(result.stdout).toContain("compatibility alias for `maya serve`");
     expect(result.stderr).toBe("");
   });
 

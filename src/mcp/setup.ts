@@ -5,8 +5,8 @@
  * ~/.codex/config.toml holds project trust levels — rewriting either by hand is fragile and
  * risky. Instead we drive each agent's own `mcp add` CLI, which owns its config format:
  *
- *   Claude Code:  claude mcp add maya --scope user -- <bun> <entry> mcp
- *   Codex:        codex  mcp add maya             -- <bun> <entry> mcp
+ *   Claude Code:  claude mcp add maya --scope user -- <bun> <entry> serve
+ *   Codex:        codex  mcp add maya             -- <bun> <entry> serve
  *
  * Idempotent: we `mcp remove` (ignoring "not found") before adding, so re-running updates the
  * launch command in place. Registers with every supported CLI found, or just the one named:
@@ -24,7 +24,7 @@ function mayaLaunchCommand(): string[] {
   // setup.ts lives at src/mcp/setup.ts, so the CLI entry is src/index.ts one level up.
   const entry = realpathSync(join(import.meta.dir, "..", "index.ts"));
   // process.execPath is the absolute path to the bun running us — safer than relying on PATH.
-  return [process.execPath, entry, "mcp"];
+  return [process.execPath, entry, "serve"];
 }
 
 async function onPath(bin: string): Promise<boolean> {

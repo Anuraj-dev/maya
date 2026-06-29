@@ -48,8 +48,8 @@ export const EXPECTED_CAPABILITIES = {
     {
       name: "maya mcp",
       category: "mcp",
-      summary: "Start the MCP stdio server.",
-      description: "Start Maya as an MCP stdio server.",
+      summary: "Compatibility alias for `maya serve`.",
+      description: "Start Maya's optional MCP stdio server as a compatibility alias for `maya serve`.",
       args: [],
       options: [],
       supportsJson: true,
@@ -116,6 +116,15 @@ export const EXPECTED_CAPABILITIES = {
         type: "boolean",
         description: "Use SIGKILL instead of SIGTERM.",
       }],
+      supportsJson: true,
+    },
+    {
+      name: "maya serve",
+      category: "mcp",
+      summary: "Start the optional MCP stdio server.",
+      description: "Start Maya's optional MCP stdio server over the shared runTool wrapper.",
+      args: [],
+      options: [],
       supportsJson: true,
     },
     {

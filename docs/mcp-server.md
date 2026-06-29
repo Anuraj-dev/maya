@@ -2,9 +2,10 @@
 
 ## Entry point
 
-`maya mcp` is registered in `src/index.ts` and dynamically imports `startMcpServer()` from
-`src/mcp/server.ts`. `maya setup [claude|codex]` uses each agent's own CLI to register the absolute Bun
-and `src/index.ts` launch command rather than editing agent configuration files directly.
+`maya serve` is the primary MCP launcher in `src/index.ts`, and `maya mcp` remains as a compatibility
+alias. Both dynamically import `startMcpServer()` from `src/mcp/server.ts`. `maya setup [claude|codex]`
+uses each agent's own CLI to register the absolute Bun and `src/index.ts serve` launch command rather
+than editing agent configuration files directly.
 
 The transport is `StdioServerTransport` from `@modelcontextprotocol/sdk`.
 

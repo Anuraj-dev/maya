@@ -23,6 +23,7 @@ Maya is not starting from zero. `src/index.ts` already exposes:
 | `maya live` | Run one legacy brain command with live overlay state |
 | `maya ping` | Verify the Anthropic key with a small request |
 | `maya ask` | Run one legacy in-process agent request |
+| `maya serve` | Start the optional MCP stdio server |
 | `maya mcp` | Start the MCP stdio server |
 | `maya setup` | Register Maya with Claude Code and/or Codex |
 
@@ -79,8 +80,8 @@ maya proc start|list|logs|stop
 ```
 
 Some listed discovery/browser commands remain planned; the generic `tool list/describe/call` dispatcher,
-`terminal run`, and `proc start/list/logs/stop` are implemented. Compatibility between `maya serve`
-and `maya mcp` remains tracked separately.
+`terminal run`, and `proc start/list/logs/stop` are implemented. `maya serve` is now the clear MCP
+launcher, while `maya mcp` remains a compatibility alias.
 
 ## Output sketch
 

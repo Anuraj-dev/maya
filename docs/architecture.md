@@ -6,8 +6,8 @@ Maya is a Bun-native TypeScript project. The **CLI is the canonical interface** 
 demoted to an optional pass-through that is not deleted this cycle. Active surfaces:
 
 1. `src/index.ts` is the CLI entry point. It now dispatches through the declarative command registry
-   under `src/cli/` (ADR 0003); existing commands (`start/stop/status/mcp/setup/ask/ping/live`) are
-   kept as lazy-loaded specs.
+   under `src/cli/` (ADR 0003); existing commands (`start/stop/status/serve/mcp/setup/ask/ping/live`)
+   are kept as lazy-loaded specs.
 2. `src/mcp/server.ts` exposes Maya tools over MCP stdio — now a demoted adapter, not the primary
    interface.
 3. `src/agent/loop.ts` runs the legacy in-process LLM path used by `maya ask`, `maya live`, and the daemon.
@@ -23,6 +23,7 @@ src/index.ts
   +-- start/stop/status --> src/daemon/service.ts
   +-- ask -------------> src/agent/loop.ts --> src/brain/*
   +-- live ------------> src/overlay/live-run.ts --> agent loop
+  +-- serve -----------> src/mcp/server.ts
   +-- mcp -------------> src/mcp/server.ts
   +-- setup -----------> src/mcp/setup.ts
 

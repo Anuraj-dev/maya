@@ -18,10 +18,11 @@ The overlay is a separate Bun package under `overlay/` and uses React, Vite, and
 bun install
 cp .env.example .env
 bun src/index.ts --help
-bun src/index.ts mcp
+bun src/index.ts serve
 ```
 
-`bun run start` starts the daemon, not the MCP server. The MCP entry is `bun src/index.ts mcp`.
+`bun run start` starts the daemon, not the MCP server. The MCP entry is `bun src/index.ts serve`
+(`maya mcp` remains a compatibility alias).
 
 ## Validation
 
