@@ -10,7 +10,7 @@
  *      build each slice. A todo is a promise, not a failure.
  */
 import { expect, test, describe } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -236,6 +236,30 @@ describe("ProcessManager", () => {
 
       expect(await mgr.stop(p.id, "SIGKILL")).toBe(true);
       expect(mgr.get(p.id)?.status).toBe("exited");
+    } finally {
+      try {
+        process.kill(-p.pid, "SIGKILL");
+      } catch {
+        // Already exited.
+      }
+    }
+  });
+
+  test("stopAll ignores a stale record whose pid now identifies another process", () => {
+    const dir = newDir();
+    const owner = createProcessManager({ dir });
+    const p = owner.start({ command: "sleep 30", name: "pid-reuse-fixture" });
+    const metadataPath = join(dir, `${p.id}.process.json`);
+    const stale = JSON.parse(readFileSync(metadataPath, "utf8")) as ManagedProcess;
+    stale.startToken = "different-process-start-token";
+    stale.updatedAt = (stale.updatedAt ?? Date.now()) + 1;
+    writeFileSync(metadataPath, JSON.stringify(stale, null, 2));
+
+    try {
+      const reloaded = createProcessManager({ dir });
+      expect(reloaded.stopAll()).toBe(0);
+      expect(reloaded.get(p.id)?.status).toBe("exited");
+      expect(() => process.kill(p.pid, 0)).not.toThrow();
     } finally {
       try {
         process.kill(-p.pid, "SIGKILL");

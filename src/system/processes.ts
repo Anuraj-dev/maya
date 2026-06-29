@@ -306,6 +306,12 @@ export function createProcessManager(deps: { dir: string }): ProcessManager {
       let n = 0;
       for (const e of entries.values()) {
         if (e.meta.status === "running") {
+          if (!isAlive(e.meta)) {
+            e.meta.status = "exited";
+            e.meta.exitCode = null;
+            persist(e.meta);
+            continue;
+          }
           try {
             try {
               process.kill(-e.meta.pid, "SIGTERM");
