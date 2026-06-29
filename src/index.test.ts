@@ -32,6 +32,94 @@ function createDoctorHome(options: {
   return home;
 }
 
+function createFindFixture() {
+  const docsFixture = createDocsIndexFixture({
+    files: [
+      {
+        name: "alpha-helper",
+        category: "entrypoint",
+        description: "Prefix match fixture.",
+        filePath: "src/alpha-helper.ts",
+        relatedDocsPath: "docs/alpha-guide.md",
+        relatedMcpTool: null,
+        futureCliCommand: null,
+        keywords: ["alpha"],
+        whenToUse: "Use for alpha-prefixed file matches.",
+      },
+      {
+        name: "zeta-browser-notes",
+        category: "documentation",
+        description: "Keyword-only fixture for browser discovery.",
+        filePath: "src/zeta-browser-notes.ts",
+        relatedDocsPath: "docs/browser-notes.md",
+        relatedMcpTool: null,
+        futureCliCommand: null,
+        keywords: ["browser", "notes"],
+        whenToUse: "Use when browser notes are enough.",
+      },
+    ],
+    tools: [
+      {
+        name: "alpha",
+        category: "browser",
+        description: "Exact match fixture.",
+        filePath: "src/tools/alpha.ts",
+        relatedDocsPath: "docs/alpha-guide.md",
+        mcpTool: "alpha",
+        futureCliCommand: null,
+        keywords: ["alpha", "browser"],
+        whenToUse: "Use for exact alpha tool matches.",
+      },
+      {
+        name: "beta-browser",
+        category: "browser",
+        description: "Browser keyword fixture.",
+        filePath: "src/tools/beta-browser.ts",
+        relatedDocsPath: "docs/browser-notes.md",
+        mcpTool: "beta-browser",
+        futureCliCommand: null,
+        keywords: ["browser"],
+        whenToUse: "Use for browser keyword matches.",
+      },
+    ],
+    commands: [
+      {
+        name: "maya omega",
+        category: "discovery",
+        status: "planned",
+        description: "Alpha description fixture.",
+        filePath: null,
+        relatedDocsPath: "docs/omega.md",
+        keywords: ["omega"],
+        whenToUse: "Use for description-only alpha matches.",
+      },
+      {
+        name: "maya zulu",
+        category: "discovery",
+        status: "planned",
+        description: "Browser command fixture.",
+        filePath: null,
+        relatedDocsPath: "docs/browser-notes.md",
+        keywords: ["browser"],
+        whenToUse: "Use for browser command matches.",
+      },
+    ],
+  });
+
+  mkdirSync(join(docsFixture.root, "src"), { recursive: true });
+  mkdirSync(join(docsFixture.root, "src", "tools"), { recursive: true });
+  mkdirSync(join(docsFixture.root, "docs"), { recursive: true });
+  writeFileSync(join(docsFixture.root, "src", "alpha-helper.ts"), "");
+  writeFileSync(join(docsFixture.root, "src", "zeta-browser-notes.ts"), "");
+  writeFileSync(join(docsFixture.root, "src", "tools", "alpha.ts"), "");
+  writeFileSync(join(docsFixture.root, "src", "tools", "beta-browser.ts"), "");
+  writeFileSync(join(docsFixture.root, "docs", "alpha-guide.md"), "# Alpha guide\n");
+  writeFileSync(join(docsFixture.root, "docs", "browser-notes.md"), "# Browser notes\n");
+  writeFileSync(join(docsFixture.root, "docs", "omega.md"), "# Omega\n");
+
+  return docsFixture;
+}
+
 describe("S1 — CLI process boundary", () => {
   test("maya --help exits 0 with grouped concise text", async () => {
     const result = await runMayaCli(["--help"]);
@@ -508,5 +596,138 @@ describe("S6 — capabilities snapshot", () => {
       "vault_write",
     ]);
     expect(payload.data.tools.every((tool) => tool.command === `maya tool call ${tool.name}`)).toBe(true);
+  });
+});
+
+describe("S7 — docs-index find command", () => {
+  test("find ranks exact names before prefixes before keyword or description matches", async () => {
+    const fixture = createFindFixture();
+
+    try {
+      const result = await runMayaCli(["find", "alpha", "--json"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const payload = result.parseEnvelope<{
+        data: {
+          query: string;
+          results: Array<{ type: string; name: string; path: string; reason: string }>;
+        };
+      }>();
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(payload.data.query).toBe("alpha");
+      expect(payload.data.results.map((entry) => `${entry.type}:${entry.name}`)).toEqual([
+        "tool:alpha",
+        "file:alpha-helper",
+        "doc:docs/alpha-guide.md",
+        "command:maya omega",
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("find --type restricts result kinds", async () => {
+    const fixture = createFindFixture();
+
+    try {
+      const result = await runMayaCli(["find", "browser", "--type", "tool", "--json"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const payload = result.parseEnvelope<{
+        data: {
+          type: string | null;
+          results: Array<{ type: string; name: string }>;
+        };
+      }>();
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(payload.data.type).toBe("tool");
+      expect(payload.data.results).toEqual([
+        { type: "tool", name: "beta-browser" },
+        { type: "tool", name: "alpha" },
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("find --limit bounds results and marks truncation explicitly in text and json", async () => {
+    const fixture = createFindFixture();
+
+    try {
+      const text = await runMayaCli(["find", "browser", "--limit", "2"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const json = await runMayaCli(["find", "browser", "--limit", "2", "--json"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const payload = json.parseEnvelope<{
+        data: {
+          limit: number;
+          total: number;
+          truncated: boolean;
+          results: Array<{ type: string; name: string }>;
+        };
+      }>();
+
+      expect(text.exitCode).toBe(0);
+      expect(text.stderr).toBe("");
+      expect(text.stdout).toBe([
+        "tool  beta-browser  src/tools/beta-browser.ts  Use for browser keyword matches.",
+        "file  zeta-browser-notes  src/zeta-browser-notes.ts  Use when browser notes are enough.",
+        "2 of 5 results for \"browser\"",
+        "…[truncated to 2 results]",
+        "",
+      ].join("\n"));
+      expect(payload.data.limit).toBe(2);
+      expect(payload.data.total).toBe(5);
+      expect(payload.data.truncated).toBe(true);
+      expect(payload.data.results).toEqual([
+        { type: "tool", name: "beta-browser" },
+        { type: "file", name: "zeta-browser-notes" },
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("find reports empty results cleanly", async () => {
+    const fixture = createFindFixture();
+
+    try {
+      const result = await runMayaCli(["find", "missing"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toBe('No results for "missing".\n');
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("find text and json stay deterministic for the same docs-index root", async () => {
+    const fixture = createFindFixture();
+
+    try {
+      const env = { MAYA_DOCS_INDEX_ROOT: fixture.root };
+      const firstText = await runMayaCli(["find", "browser"], { env });
+      const secondText = await runMayaCli(["find", "browser"], { env });
+      const firstJson = await runMayaCli(["find", "browser", "--json"], { env });
+      const secondJson = await runMayaCli(["find", "browser", "--json"], { env });
+
+      expect(firstText.exitCode).toBe(0);
+      expect(secondText.exitCode).toBe(0);
+      expect(firstJson.exitCode).toBe(0);
+      expect(secondJson.exitCode).toBe(0);
+      expect(secondText.stdout).toBe(firstText.stdout);
+      expect(secondJson.stdout).toBe(firstJson.stdout);
+    } finally {
+      fixture.cleanup();
+    }
   });
 });

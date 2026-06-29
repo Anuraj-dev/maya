@@ -41,6 +41,26 @@ export const EXPECTED_CAPABILITIES = {
       supportsJson: true,
     },
     {
+      name: "maya find",
+      category: "discovery",
+      summary: "Search curated docs-index catalogs with bounded output.",
+      description: "Search indexed Maya files, tools, docs, and commands without crawling the source tree.",
+      args: [{ name: "query", required: true, variadic: true }],
+      options: [
+        {
+          long: "--type",
+          type: "string",
+          description: "Restrict results to file, tool, doc, or command.",
+        },
+        {
+          long: "--limit",
+          type: "string",
+          description: "Return at most this many results (default 10).",
+        },
+      ],
+      supportsJson: true,
+    },
+    {
       name: "maya live",
       category: "legacy-agent",
       summary: "Run one command with the live overlay bridge.",
