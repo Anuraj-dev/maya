@@ -321,14 +321,30 @@
       "whenToUse": "Use only after the CLI action adapter preserves current MCP safety and auditing."
     },
     {
-      "name": "maya tools describe <tool-name>",
-      "category": "discovery",
-      "status": "planned",
-      "description": "Show one tool's source, purpose, inputs, usage, and future CLI mapping.",
-      "filePath": null,
+      "name": "maya tool call <tool-name> [input]",
+      "category": "action",
+      "status": "implemented",
+      "description": "Execute any active registered tool through the shared safety and audit wrapper.",
+      "filePath": "src/cli/tool.ts",
       "relatedDocsPath": "docs/cli-vision.md",
       "keywords": [
-        "tools",
+        "tool",
+        "call",
+        "execute",
+        "json",
+        "parity"
+      ],
+      "whenToUse": "Use as the generic parity path when no curated CLI command exists."
+    },
+    {
+      "name": "maya tool describe <tool-name>",
+      "category": "discovery",
+      "status": "implemented",
+      "description": "Return exactly one active tool's description and JSON input schema.",
+      "filePath": "src/cli/tool.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": [
+        "tool",
         "describe",
         "schema",
         "mcp",
@@ -337,14 +353,14 @@
       "whenToUse": "Use when an agent needs one full tool contract instead of the complete MCP catalog."
     },
     {
-      "name": "maya tools list",
+      "name": "maya tool list",
       "category": "discovery",
-      "status": "planned",
-      "description": "List tool names and concise summaries without loading full schemas.",
-      "filePath": null,
+      "status": "implemented",
+      "description": "List active tool names and concise summaries in deterministic order.",
+      "filePath": "src/cli/tool.ts",
       "relatedDocsPath": "docs/cli-vision.md",
       "keywords": [
-        "tools",
+        "tool",
         "list",
         "capability",
         "mcp"

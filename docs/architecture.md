@@ -66,10 +66,10 @@ It converts all specs to MCP `Tool` objects, serves them from `ListTools`, and d
 through `runTool`. Image-returning tools return a path internally; the MCP adapter reads that path
 and emits an MCP image block.
 
-The planned CLI generic dispatcher (`maya tool call <name>`, issue #25) will route the same registry
-through `runTool` and emit the `{ok, version, command, data|error}` envelope (ADR 0003). It is not
-yet implemented. Neither adapter reimplements Playwright, shell execution, file safety, reminders, or
-process management.
+The CLI generic dispatcher (`maya tool list/describe/call`) exposes the active headless registry.
+Calls route through `runTool` and emit the `{ok, version, command, data|error}` envelope (ADR 0003);
+successful image tools return a filesystem path and PNG dimensions rather than an MCP image block.
+Neither adapter reimplements Playwright, shell execution, file safety, reminders, or process management.
 
 ## Browser and form control
 

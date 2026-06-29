@@ -4,9 +4,9 @@ Maya tool names use underscores because provider tool-name rules allow `[a-zA-Z0
 registry lives in `src/tools/index.ts`; the MCP adapter adds three transport-local tools in
 `src/mcp/server.ts` (`listen`, `speak`, `undo`).
 
-Every tool in the registry will be reachable via the planned CLI generic dispatcher
-(`maya tool call <name> --json '{"arg":"value"}'`, issue #25). All execution will route through
-`runTool` (ADR 0005); the dispatcher is not yet implemented.
+Every active headless tool in the registry is reachable through the CLI generic dispatcher
+(`maya tool call <name> --json '{"arg":"value"}'`). Execution routes through `runTool` (ADR 0005),
+while `maya tool list` and `maya tool describe` provide progressive discovery.
 
 ## Browser
 

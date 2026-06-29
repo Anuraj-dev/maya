@@ -27,13 +27,6 @@ function formatOptions(spec: CommandSpec): string[] {
 }
 
 export function renderRootHelp(specs: CommandSpec[], globalOptions: GlobalOptionSpec[]): string {
-  const groups = new Map<CommandCategory, CommandSpec[]>();
-  for (const spec of specs) {
-    const list = groups.get(spec.category) ?? [];
-    list.push(spec);
-    groups.set(spec.category, list);
-  }
-
   const lines = [
     "maya <command>",
     "",
@@ -41,26 +34,39 @@ export function renderRootHelp(specs: CommandSpec[], globalOptions: GlobalOption
     "",
   ];
 
-  for (const category of Object.keys(CATEGORY_TITLES) as CommandCategory[]) {
-    const commands = (groups.get(category) ?? []).sort((a, b) =>
-      a.path.join(" ").localeCompare(b.path.join(" ")),
-    );
-    if (commands.length === 0) continue;
-    lines.push(`${CATEGORY_TITLES[category]}:`);
-    const nestedGroups = new Map<string, CommandSpec[]>();
-    for (const spec of commands.filter((candidate) => candidate.path.length > 1)) {
+  const categoryOrder = Object.keys(CATEGORY_TITLES) as CommandCategory[];
+
+  // A nested command group (e.g. `tool`, `proc`) renders as a single line even
+  // when its subcommands span categories; assign it to the earliest category
+  // among its children so it appears exactly once with its full child count.
+  const nestedGroups = new Map<string, CommandSpec[]>();
+  for (const spec of specs) {
+    if (spec.path.length > 1) {
       const name = spec.path[0]!;
       nestedGroups.set(name, [...(nestedGroups.get(name) ?? []), spec]);
     }
-    const entries = [
-      ...commands
-        .filter((spec) => spec.path.length === 1)
-        .map((spec) => ({ name: spec.path[0]!, text: `${formatUsage(spec)}  ${spec.summary}` })),
-      ...[...nestedGroups.entries()].map(([name, children]) => ({
+  }
+  const groupCategory = new Map<string, CommandCategory>();
+  for (const [name, children] of nestedGroups) {
+    groupCategory.set(
+      name,
+      categoryOrder.find((category) => children.some((child) => child.category === category))!,
+    );
+  }
+
+  for (const category of categoryOrder) {
+    const singles = specs
+      .filter((spec) => spec.path.length === 1 && spec.category === category)
+      .map((spec) => ({ name: spec.path[0]!, text: `${formatUsage(spec)}  ${spec.summary}` }));
+    const grouped = [...nestedGroups.entries()]
+      .filter(([name]) => groupCategory.get(name) === category)
+      .map(([name, children]) => ({
         name,
         text: `maya ${name} <command>  ${children.length} ${children.length === 1 ? "command" : "commands"}.`,
-      })),
-    ].sort((a, b) => a.name.localeCompare(b.name));
+      }));
+    if (singles.length === 0 && grouped.length === 0) continue;
+    lines.push(`${CATEGORY_TITLES[category]}:`);
+    const entries = [...singles, ...grouped].sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
       lines.push(`  ${entry.text}`);
     }

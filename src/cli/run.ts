@@ -22,7 +22,7 @@ function coerceCliError(error: unknown): CliError {
 
 export async function runCli(argv: string[]): Promise<number> {
   const globals = parseGlobalOptions(argv, GLOBAL_OPTIONS);
-  const command = argv.find(
+  let command = argv.find(
     (token) => !GLOBAL_OPTIONS.some((option) => token === option.long || token === option.short),
   ) ?? "maya";
   const json = globals.json;
@@ -74,6 +74,8 @@ export async function runCli(argv: string[]): Promise<number> {
       }
       return 0;
     }
+
+    command = parsed.spec.path.join(" ");
 
     if (parsed.help) {
       printSuccess(parsed, {
