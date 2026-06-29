@@ -44,7 +44,7 @@ describe("S1 — CLI process boundary", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("maya mcp");
-    expect(result.stdout).toContain("Compatibility alias for `maya serve`.");
+    expect(result.stdout).toContain("compatibility alias for `maya serve`");
     expect(result.stderr).toBe("");
   });
 
