@@ -363,7 +363,7 @@
       "filePath": "src/tools/process.ts",
       "relatedDocsPath": "docs/tools-map.md",
       "mcpTool": "proc_list",
-      "futureCliCommand": "maya terminal list",
+      "futureCliCommand": "maya proc list",
       "keywords": [
         "terminal",
         "process",
@@ -381,7 +381,7 @@
       "filePath": "src/tools/process.ts",
       "relatedDocsPath": "docs/tools-map.md",
       "mcpTool": "proc_logs",
-      "futureCliCommand": "maya terminal logs <id>",
+      "futureCliCommand": "maya proc logs <id>",
       "keywords": [
         "terminal",
         "process",
@@ -399,7 +399,7 @@
       "filePath": "src/tools/process.ts",
       "relatedDocsPath": "docs/tools-map.md",
       "mcpTool": "proc_start",
-      "futureCliCommand": "maya terminal start <command...>",
+      "futureCliCommand": "maya proc start <command...>",
       "keywords": [
         "terminal",
         "process",
@@ -418,7 +418,7 @@
       "filePath": "src/tools/process.ts",
       "relatedDocsPath": "docs/tools-map.md",
       "mcpTool": "proc_stop",
-      "futureCliCommand": "maya terminal stop <id>",
+      "futureCliCommand": "maya proc stop <id>",
       "keywords": [
         "terminal",
         "process",

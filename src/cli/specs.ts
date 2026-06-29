@@ -1,5 +1,6 @@
 import { buildCapabilities, renderCapabilitiesText } from "./capabilities.ts";
 import { runLegacyCommand } from "./legacy.ts";
+import { TERMINAL_COMMAND_SPECS } from "./terminal.ts";
 import type { CommandSpec, GlobalOptionSpec } from "./types.ts";
 
 export const GLOBAL_OPTIONS: GlobalOptionSpec[] = [
@@ -16,6 +17,7 @@ const providerOption = {
 };
 
 export const COMMAND_SPECS: CommandSpec[] = [
+  ...TERMINAL_COMMAND_SPECS,
   {
     path: ["start"],
     category: "runtime",

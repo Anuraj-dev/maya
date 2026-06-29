@@ -7,19 +7,22 @@
  * developer.
  *
  * Each process runs detached with stdout+stderr redirected to a per-process log file under
- * <dir>/<id>.log, so output survives even after the brain stops watching. Lifetime is the MCP
- * session: a process started here keeps running if the server restarts (detached), but the
- * manager loses its handle — reattaching across restarts is a future nicety (see plan.md §4-C).
+ * <dir>/<id>.log, so output survives even after the brain stops watching. Process metadata is
+ * persisted beside those logs, allowing later CLI invocations or a restarted MCP server to list,
+ * tail, and signal the detached process by pid.
  *
  * Testability (mirrors safety/floor.ts): the parsing/formatting cores are PURE —
  *   tailLines   : (text, n) -> last n lines
  *   describeProc: ManagedProcess -> one-line status
  * The manager itself is exercised by a real (fast) spawn in the spec.
  */
-import { openSync, closeSync, existsSync, mkdirSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { Subprocess } from "bun";
+
+const LOG_MAX_LINES = 500;
+const LOG_MAX_CHARS = 8_000;
 
 export interface StartInput {
   /** Shell command to run (executed via /bin/sh -c), e.g. "bun run dev". */
@@ -39,6 +42,8 @@ export interface ManagedProcess {
   status: "running" | "exited";
   exitCode: number | null;
   logPath: string;
+  /** Linux process start-time token used to avoid signalling an unrelated process after pid reuse. */
+  startToken?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +73,7 @@ export function describeProc(p: ManagedProcess, now: number): string {
 
 interface Entry {
   meta: ManagedProcess;
-  proc: Subprocess;
+  proc?: Subprocess;
 }
 
 export interface ProcessManager {
@@ -83,11 +88,57 @@ export interface ProcessManager {
 
 export function createProcessManager(deps: { dir: string }): ProcessManager {
   const entries = new Map<string, Entry>();
-  let seq = 0;
+  const registryPath = join(deps.dir, "processes.json");
 
   const ensureDir = () => {
     if (!existsSync(deps.dir)) mkdirSync(deps.dir, { recursive: true });
   };
+
+  const save = () => {
+    ensureDir();
+    const tempPath = `${registryPath}.${process.pid}.tmp`;
+    writeFileSync(tempPath, JSON.stringify([...entries.values()].map((entry) => entry.meta), null, 2));
+    renameSync(tempPath, registryPath);
+  };
+
+  const readStartToken = (pid: number): string | undefined => {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+      const fieldsAfterCommand = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+      return fieldsAfterCommand[19];
+    } catch {
+      return undefined;
+    }
+  };
+
+  const isAlive = (meta: Pick<ManagedProcess, "pid" | "startToken">): boolean => {
+    try {
+      process.kill(meta.pid, 0);
+      return !meta.startToken || readStartToken(meta.pid) === meta.startToken;
+    } catch {
+      return false;
+    }
+  };
+
+  if (existsSync(registryPath)) {
+    try {
+      const stored = JSON.parse(readFileSync(registryPath, "utf8")) as ManagedProcess[];
+      for (const meta of stored) {
+        if (meta.status === "running" && !isAlive(meta)) {
+          meta.status = "exited";
+          meta.exitCode = null;
+        }
+        entries.set(meta.id, { meta });
+      }
+    } catch {
+      // A damaged registry must not make process control unusable; new starts rebuild it.
+    }
+  }
+
+  let seq = Math.max(
+    0,
+    ...[...entries.keys()].map((id) => Number(id.match(/^p(\d+)$/)?.[1] ?? 0)),
+  );
 
   const nextId = (): string => {
     seq += 1;
@@ -110,6 +161,7 @@ export function createProcessManager(deps: { dir: string }): ProcessManager {
       try {
         proc = Bun.spawn(["/bin/sh", "-c", command], {
           cwd,
+          detached: true,
           stdin: "ignore",
           stdout: fd,
           stderr: fd,
@@ -127,24 +179,43 @@ export function createProcessManager(deps: { dir: string }): ProcessManager {
         status: "running",
         exitCode: null,
         logPath,
+        startToken: readStartToken(proc.pid),
       };
       entries.set(id, { meta, proc });
+      save();
+      proc.unref();
 
       // Mark exited when it finishes, but keep the entry so logs/status stay queryable.
       void proc.exited.then((code) => {
         meta.status = "exited";
         meta.exitCode = code;
+        save();
       });
 
       return meta;
     },
 
     list() {
+      let changed = false;
+      for (const entry of entries.values()) {
+        if (entry.meta.status === "running" && !isAlive(entry.meta)) {
+          entry.meta.status = "exited";
+          entry.meta.exitCode = null;
+          changed = true;
+        }
+      }
+      if (changed) save();
       return [...entries.values()].map((e) => e.meta).sort((a, b) => b.startedAt - a.startedAt);
     },
 
     get(id) {
-      return entries.get(id)?.meta;
+      const entry = entries.get(id);
+      if (entry?.meta.status === "running" && !isAlive(entry.meta)) {
+        entry.meta.status = "exited";
+        entry.meta.exitCode = null;
+        save();
+      }
+      return entry?.meta;
     },
 
     async logs(id, lines = 50) {
@@ -152,16 +223,44 @@ export function createProcessManager(deps: { dir: string }): ProcessManager {
       if (!entry) return `No process with id "${id}".`;
       if (!existsSync(entry.meta.logPath)) return "(no output yet)";
       const text = await Bun.file(entry.meta.logPath).text();
-      const tail = tailLines(text, lines);
-      return tail || "(no output yet)";
+      const normalized = text.replace(/\n$/, "");
+      if (!normalized) return "(no output yet)";
+
+      const requestedLines = Math.max(1, Math.floor(lines));
+      const effectiveLines = Math.min(requestedLines, LOG_MAX_LINES);
+      const totalLines = normalized.split("\n").length;
+      let tail = tailLines(normalized, effectiveLines);
+      const notices: string[] = [];
+      if (requestedLines > LOG_MAX_LINES) {
+        notices.push(`…[limited to last ${LOG_MAX_LINES} lines]`);
+      } else if (totalLines > effectiveLines) {
+        notices.push(`…[truncated to last ${effectiveLines} lines]`);
+      }
+      if (tail.length > LOG_MAX_CHARS) {
+        tail = tail.slice(-LOG_MAX_CHARS);
+        notices.push(`…[truncated to last ${LOG_MAX_CHARS} characters]`);
+      }
+      return [...notices, tail].join("\n");
     },
 
     stop(id, signal = "SIGTERM") {
       const entry = entries.get(id);
       if (!entry) return false;
-      if (entry.meta.status === "exited") return false;
+      if (entry.meta.status === "exited" || !isAlive(entry.meta)) {
+        entry.meta.status = "exited";
+        entry.meta.exitCode = null;
+        save();
+        return false;
+      }
       try {
-        entry.proc.kill(signal);
+        try {
+          process.kill(-entry.meta.pid, signal);
+        } catch {
+          process.kill(entry.meta.pid, signal);
+        }
+        entry.meta.status = "exited";
+        entry.meta.exitCode = null;
+        save();
         return true;
       } catch {
         return false;
@@ -173,13 +272,20 @@ export function createProcessManager(deps: { dir: string }): ProcessManager {
       for (const e of entries.values()) {
         if (e.meta.status === "running") {
           try {
-            e.proc.kill("SIGTERM");
+            try {
+              process.kill(-e.meta.pid, "SIGTERM");
+            } catch {
+              process.kill(e.meta.pid, "SIGTERM");
+            }
+            e.meta.status = "exited";
+            e.meta.exitCode = null;
             n += 1;
           } catch {
             /* ignore */
           }
         }
       }
+      if (n > 0) save();
       return n;
     },
   };

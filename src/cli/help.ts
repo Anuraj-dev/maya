@@ -2,6 +2,7 @@ import type { CommandCategory, CommandSpec, GlobalOptionSpec } from "./types.ts"
 
 const CATEGORY_TITLES: Record<CommandCategory, string> = {
   runtime: "Runtime",
+  action: "Actions",
   "legacy-agent": "Legacy Agent",
   diagnostic: "Diagnostic",
   mcp: "MCP",

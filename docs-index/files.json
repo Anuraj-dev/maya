@@ -348,7 +348,7 @@
       "filePath": "src/system/processes.ts",
       "relatedDocsPath": "docs/architecture.md",
       "relatedMcpTool": "proc_start, proc_list, proc_logs, proc_stop",
-      "futureCliCommand": "maya terminal ...",
+      "futureCliCommand": "maya proc start|list|logs|stop",
       "keywords": [
         "process",
         "manager",
@@ -365,7 +365,7 @@
       "filePath": "src/tools/process.ts",
       "relatedDocsPath": "docs/tools-map.md",
       "relatedMcpTool": "proc_start, proc_list, proc_logs, proc_stop",
-      "futureCliCommand": "maya terminal ...",
+      "futureCliCommand": "maya proc start|list|logs|stop",
       "keywords": [
         "process",
         "background",

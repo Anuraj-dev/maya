@@ -60,7 +60,7 @@ Planned work should extend this surface without breaking those commands.
 Discovery commands save tokens first and carry minimal behavioral risk. Browser and terminal actions
 may save more per execution, but prematurely adding them could duplicate logic or bypass MCP safety.
 
-## Planned command surface
+## Command surface
 
 ```text
 maya --help
@@ -74,9 +74,11 @@ maya tool describe <tool-name> [--json]
 maya files map [query] [--json]
 maya browser screenshot --out <path>
 maya terminal run <command...>
+maya proc start|list|logs|stop
 ```
 
-Exact naming and compatibility with `maya mcp` must be decided in the command architecture issue.
+Some listed discovery/browser commands remain planned; `terminal run` and `proc start/list/logs/stop`
+are implemented. Compatibility between `maya serve` and `maya mcp` remains tracked separately.
 
 ## Output sketch
 

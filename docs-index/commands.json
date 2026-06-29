@@ -173,6 +173,66 @@
       "whenToUse": "Use to test the legacy Anthropic provider configuration."
     },
     {
+      "name": "maya proc list",
+      "category": "action",
+      "status": "implemented",
+      "description": "List background processes managed by Maya across CLI invocations.",
+      "filePath": "src/cli/terminal.ts",
+      "relatedDocsPath": "docs/architecture.md",
+      "keywords": [
+        "process",
+        "background",
+        "list",
+        "status"
+      ],
+      "whenToUse": "Use to discover process ids before reading logs or stopping a managed command."
+    },
+    {
+      "name": "maya proc logs <id>",
+      "category": "action",
+      "status": "implemented",
+      "description": "Read a bounded tail of a managed background process log.",
+      "filePath": "src/cli/terminal.ts",
+      "relatedDocsPath": "docs/architecture.md",
+      "keywords": [
+        "process",
+        "logs",
+        "tail",
+        "output"
+      ],
+      "whenToUse": "Use after proc start or proc list to inspect recent process output."
+    },
+    {
+      "name": "maya proc start <command...>",
+      "category": "action",
+      "status": "implemented",
+      "description": "Start a long-running command with persistent metadata and captured output.",
+      "filePath": "src/cli/terminal.ts",
+      "relatedDocsPath": "docs/architecture.md",
+      "keywords": [
+        "process",
+        "background",
+        "start",
+        "server"
+      ],
+      "whenToUse": "Use for dev servers, watchers, or other commands that must outlive one CLI call."
+    },
+    {
+      "name": "maya proc stop <id>",
+      "category": "action",
+      "status": "implemented",
+      "description": "Stop a managed process group by its persistent id.",
+      "filePath": "src/cli/terminal.ts",
+      "relatedDocsPath": "docs/architecture.md",
+      "keywords": [
+        "process",
+        "stop",
+        "kill",
+        "background"
+      ],
+      "whenToUse": "Use to terminate a process started through maya proc start."
+    },
+    {
       "name": "maya serve",
       "category": "mcp",
       "status": "planned",
@@ -247,9 +307,9 @@
     {
       "name": "maya terminal run <command...>",
       "category": "action",
-      "status": "planned",
+      "status": "implemented",
       "description": "Run a focused shell command through shared safety, audit, timeout, and output behavior.",
-      "filePath": null,
+      "filePath": "src/cli/terminal.ts",
       "relatedDocsPath": "docs/cli-vision.md",
       "keywords": [
         "terminal",
