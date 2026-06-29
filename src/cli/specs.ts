@@ -1,6 +1,7 @@
 import { buildCapabilities, renderCapabilitiesText } from "./capabilities.ts";
 import { runLegacyCommand } from "./legacy.ts";
 import { TERMINAL_COMMAND_SPECS } from "./terminal.ts";
+import { listCliToolSpecs, TOOL_COMMAND_SPECS } from "./tool.ts";
 import type { CommandSpec, GlobalOptionSpec } from "./types.ts";
 
 export const GLOBAL_OPTIONS: GlobalOptionSpec[] = [
@@ -18,6 +19,7 @@ const providerOption = {
 
 export const COMMAND_SPECS: CommandSpec[] = [
   ...TERMINAL_COMMAND_SPECS,
+  ...TOOL_COMMAND_SPECS,
   {
     path: ["start"],
     category: "runtime",
@@ -124,7 +126,7 @@ export const COMMAND_SPECS: CommandSpec[] = [
     summary: "Return the full Maya CLI command contract.",
     description: "List every registered CLI command, argument, and option.",
     run: async () => {
-      const contract = buildCapabilities(COMMAND_SPECS, GLOBAL_OPTIONS);
+      const contract = buildCapabilities(COMMAND_SPECS, GLOBAL_OPTIONS, await listCliToolSpecs());
       return {
         text: renderCapabilitiesText(contract),
         data: contract,

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { EXPECTED_CAPABILITIES } from "./cli/__tests__/capabilities-fixture.ts";
+import type { CapabilitiesContract } from "./cli/capabilities.ts";
 import { runMayaCli } from "./cli/__tests__/process.ts";
 
 describe("S1 — CLI process boundary", () => {
@@ -155,18 +156,61 @@ describe("S6 — capabilities snapshot", () => {
   test("maya capabilities is a deterministic, versioned registry contract", async () => {
     const first = await runMayaCli(["capabilities", "--json"]);
     const second = await runMayaCli(["capabilities", "--json"]);
-    const payload = first.parseEnvelope();
+    const payload = first.parseEnvelope<{
+      ok: boolean;
+      version: string;
+      command: string;
+      data: CapabilitiesContract;
+    }>();
 
     expect(first.exitCode).toBe(0);
     expect(second.exitCode).toBe(0);
     expect(first.stderr).toBe("");
     expect(second.stderr).toBe("");
     expect(second.stdout).toBe(first.stdout);
-    expect(payload).toEqual({
+    expect({
+      ...payload,
+      data: { ...payload.data, tools: [] },
+    }).toEqual({
       ok: true,
       version: "1",
       command: "capabilities",
       data: EXPECTED_CAPABILITIES,
     });
+  });
+
+  test("S3 — every active tool is listed with a generic call command", async () => {
+    const result = await runMayaCli(["capabilities", "--json"]);
+    const payload = result.parseEnvelope<{ data: CapabilitiesContract }>();
+
+    expect(payload.data.tools.map((tool) => tool.name)).toEqual([
+      "app_open",
+      "browser_click",
+      "browser_click_selector",
+      "browser_eval",
+      "browser_navigate",
+      "browser_press_key",
+      "browser_read",
+      "browser_screenshot",
+      "browser_scroll",
+      "browser_type",
+      "browser_type_selector",
+      "clipboard_read",
+      "clipboard_write",
+      "file_delete",
+      "file_read",
+      "file_write",
+      "get_context",
+      "memory_forget",
+      "memory_save",
+      "notify",
+      "screenshot",
+      "shell_run",
+      "vault_append",
+      "vault_read",
+      "vault_search",
+      "vault_write",
+    ]);
+    expect(payload.data.tools.every((tool) => tool.command === `maya tool call ${tool.name}`)).toBe(true);
   });
 });

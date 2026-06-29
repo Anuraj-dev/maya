@@ -72,6 +72,23 @@
       "whenToUse": "Open when adding or tracing a Maya command."
     },
     {
+      "name": "CLI tool dispatcher",
+      "category": "cli",
+      "description": "Generic tool list, describe, and safety-wrapped call commands.",
+      "filePath": "src/cli/tool.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "relatedMcpTool": "all standard tools",
+      "futureCliCommand": "maya tool list",
+      "keywords": [
+        "cli",
+        "tool",
+        "dispatcher",
+        "parity",
+        "runTool"
+      ],
+      "whenToUse": "Open when tracing generic CLI discovery or tool execution."
+    },
+    {
       "name": "CLI-first PRD",
       "category": "documentation",
       "description": "Product requirements for the token-efficient CLI, docs, and index system.",
@@ -500,7 +517,7 @@
       "filePath": "src/tools/index.ts",
       "relatedDocsPath": "docs/architecture.md",
       "relatedMcpTool": "all standard tools",
-      "futureCliCommand": "maya tools list",
+      "futureCliCommand": "maya tool list",
       "keywords": [
         "tool",
         "registry",

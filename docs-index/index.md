@@ -5,7 +5,7 @@ This directory is the first local discovery database for Maya's future agent-fir
 | File | Entries | Purpose |
 |---|---:|---|
 | `files.json` | curated important files | power `maya files map` and file results in `maya find` |
-| `tools.json` | implemented tool catalog | power `maya tools list/describe` and tool results in `maya find` |
+| `tools.json` | implemented tool catalog | power `maya tool list/describe` and tool results in `maya find` |
 | `commands.json` | implemented and planned CLI commands | distinguish current behavior from roadmap |
 
 All indexes use `schemaVersion: 1`. They are hand-maintained in this cycle. Entries contain a concise

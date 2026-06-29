@@ -1,4 +1,5 @@
 import type { CommandSpec, GlobalOptionSpec } from "./types.ts";
+import type { ToolSpec } from "../tools/index.ts";
 import { CLI_VERSION } from "./types.ts";
 
 export interface CapabilitiesContract {
@@ -20,11 +21,17 @@ export interface CapabilitiesContract {
     }>;
     supportsJson: boolean;
   }>;
+  tools: Array<{
+    name: string;
+    description: string;
+    command: string;
+  }>;
 }
 
 export function buildCapabilities(
   specs: CommandSpec[],
   globalOptions: GlobalOptionSpec[],
+  tools: ToolSpec[] = [],
 ): CapabilitiesContract {
   return {
     version: CLI_VERSION,
@@ -55,11 +62,19 @@ export function buildCapabilities(
         })),
         supportsJson: true,
       })),
+    tools: [...tools]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(({ name, description }) => ({
+        name,
+        description,
+        command: `maya tool call ${name}`,
+      })),
   };
 }
 
 export function renderCapabilitiesText(contract: CapabilitiesContract): string {
-  return contract.commands
-    .map((command) => `${command.name}  ${command.summary}`)
-    .join("\n");
+  return [
+    ...contract.commands.map((command) => `${command.name}  ${command.summary}`),
+    ...contract.tools.map((tool) => `${tool.command}  ${tool.description}`),
+  ].join("\n");
 }

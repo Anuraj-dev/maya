@@ -69,16 +69,18 @@ maya serve
 maya find <query> [--type file|tool|doc|command] [--limit N] [--json]
 maya docs query <query> [--limit N] [--json]
 maya docs index [--check]
-maya tool list [--category category] [--json]
+maya tool list [--json]
 maya tool describe <tool-name> [--json]
+maya tool call <tool-name> --json '{"arg":"value"}'
 maya files map [query] [--json]
 maya browser screenshot --out <path>
 maya terminal run <command...>
 maya proc start|list|logs|stop
 ```
 
-Some listed discovery/browser commands remain planned; `terminal run` and `proc start/list/logs/stop`
-are implemented. Compatibility between `maya serve` and `maya mcp` remains tracked separately.
+Some listed discovery/browser commands remain planned; the generic `tool list/describe/call` dispatcher,
+`terminal run`, and `proc start/list/logs/stop` are implemented. Compatibility between `maya serve`
+and `maya mcp` remains tracked separately.
 
 ## Output sketch
 
