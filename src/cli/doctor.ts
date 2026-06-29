@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_PATH, loadConfig } from "../config/index.ts";
+import { validateDocsIndex } from "../docs-index/validate.ts";
 import type { CommandResult } from "./types.ts";
 
 type DoctorSeverity = "required" | "optional";
@@ -30,6 +31,7 @@ interface DoctorReport {
 
 const PACKAGE_JSON_PATH = join(import.meta.dir, "..", "..", "package.json");
 const CLI_ENTRY_PATH = join(import.meta.dir, "..", "index.ts");
+const DEFAULT_DOCS_INDEX_ROOT = join(import.meta.dir, "..", "..");
 
 function pushCheck(
   checks: DoctorCheck[],
@@ -147,6 +149,42 @@ async function checkConfig(checks: DoctorCheck[]): Promise<void> {
   }
 }
 
+function docsIndexRoot(): string {
+  return process.env.MAYA_DOCTOR_DOCS_ROOT || DEFAULT_DOCS_INDEX_ROOT;
+}
+
+function checkDocsIndex(checks: DoctorCheck[]): void {
+  const root = docsIndexRoot();
+
+  try {
+    const index = validateDocsIndex(root, []);
+    pushCheck(checks, {
+      id: "docs-index",
+      label: "Docs index",
+      severity: "required",
+      ok: true,
+      summary: `Docs index catalogs validated (schemaVersion ${index.schemaVersion}).`,
+      details: {
+        root,
+        schemaVersion: index.schemaVersion,
+      },
+    });
+  } catch (error) {
+    pushCheck(checks, {
+      id: "docs-index",
+      label: "Docs index",
+      severity: "required",
+      ok: false,
+      summary: "Docs index validation failed.",
+      nextStep: "Fix the docs-index catalogs or their referenced paths, then rerun maya doctor.",
+      details: {
+        root,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
+}
+
 function skillCheck(agent: "claude" | "codex"): DoctorCheck {
   const skillPath = join(
     homedir(),
@@ -184,15 +222,40 @@ async function commandOnPath(name: string): Promise<boolean> {
   return (await Bun.which(name)) !== null;
 }
 
+async function playwrightHealth(): Promise<
+  | { kind: "module-missing" }
+  | { kind: "browser-missing"; executablePath: string }
+  | { kind: "ok"; executablePath: string }
+> {
+  try {
+    const { chromium } = await import("playwright");
+    const executablePath = process.env.MAYA_DOCTOR_PLAYWRIGHT_EXECUTABLE || chromium.executablePath();
+    return existsSync(executablePath)
+      ? { kind: "ok", executablePath }
+      : { kind: "browser-missing", executablePath };
+  } catch {
+    return { kind: "module-missing" };
+  }
+}
+
 async function checkOptionalCapabilities(checks: DoctorCheck[]): Promise<void> {
-  const playwrightOk = await moduleAvailable("playwright");
+  const playwright = await playwrightHealth();
   pushCheck(checks, {
     id: "playwright",
     label: "Playwright",
     severity: "optional",
-    ok: playwrightOk,
-    summary: playwrightOk ? "Playwright module is available." : "Playwright module is missing.",
-    nextStep: playwrightOk ? undefined : "Run `bun install` and `bunx playwright install chromium`.",
+    ok: playwright.kind === "ok",
+    summary:
+      playwright.kind === "ok"
+        ? "Playwright module and Chromium executable are available."
+        : playwright.kind === "browser-missing"
+          ? "Playwright module is available, but the Chromium executable is missing."
+          : "Playwright module is missing.",
+    nextStep: playwright.kind === "ok" ? undefined : "Run `bun install` and `bunx playwright install chromium`.",
+    details:
+      playwright.kind === "module-missing"
+        ? { executablePath: null }
+        : { executablePath: playwright.executablePath },
   });
 
   const wlPasteOk = await commandOnPath("wl-paste");
@@ -286,6 +349,7 @@ export async function runDoctor(): Promise<CommandResult> {
   await checkPackageJson(checks);
   checkCliEntry(checks);
   await checkConfig(checks);
+  checkDocsIndex(checks);
   pushCheck(checks, skillCheck("claude"));
   pushCheck(checks, skillCheck("codex"));
   await checkOptionalCapabilities(checks);
