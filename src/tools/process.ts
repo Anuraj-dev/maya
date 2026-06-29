@@ -101,8 +101,17 @@ export function processTools(deps: ProcessDeps = {}): Record<string, MayaTool> {
       execute: async (input) => {
         const id = String(input.id ?? "").trim();
         if (!id) return "No id provided.";
-        const ok = mgr.stop(id, input.force === true ? "SIGKILL" : "SIGTERM");
-        return ok ? `Stopped ${id}.` : `Could not stop "${id}" (no such process, or it already exited).`;
+        const force = input.force === true;
+        if (!mgr.get(id)) throw new Error(`No process with id "${id}".`);
+        const ok = await mgr.stop(id, force ? "SIGKILL" : "SIGTERM");
+        if (ok) return `Stopped ${id}.`;
+
+        if (mgr.get(id)?.status === "running") {
+          const signal = force ? "SIGKILL" : "SIGTERM";
+          const next = force ? "Inspect the process manually." : `Retry with: maya proc stop ${id} --force`;
+          throw new Error(`Process "${id}" is still running after ${signal}. ${next}`);
+        }
+        throw new Error(`Process "${id}" has already exited.`);
       },
     },
   };

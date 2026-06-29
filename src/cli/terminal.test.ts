@@ -87,7 +87,7 @@ describe("terminal/process CLI", () => {
       "--json",
     ], options);
     const startedPayload = started.parseEnvelope<{ data: { output: string } }>();
-    const id = startedPayload.data.output.match(/\[(p\d+)\]/)?.[1];
+    const id = startedPayload.data.output.match(/\[(p-[a-f0-9-]+)\]/)?.[1];
 
     expect(started.exitCode).toBe(0);
     expect(id).toBeDefined();
@@ -121,7 +121,7 @@ describe("terminal/process CLI", () => {
     const options = { home: profile.home, env: { MAYA_DIR: profile.mayaDir } };
     const started = await runMayaCli(["proc", "start", "seq 1 10", "--json"], options);
     const output = started.parseEnvelope<{ data: { output: string } }>().data.output;
-    const id = output.match(/\[(p\d+)\]/)?.[1];
+    const id = output.match(/\[(p-[a-f0-9-]+)\]/)?.[1];
     expect(id).toBeDefined();
 
     let logs = await runMayaCli(["proc", "logs", id!, "--lines", "2"], options);
@@ -132,5 +132,33 @@ describe("terminal/process CLI", () => {
 
     expect(logs.exitCode).toBe(0);
     expect(logs.stdout).toBe("…[truncated to last 2 lines]\n9\n10\n");
+  });
+
+  test("proc stop reports a TERM-resistant process and preserves force-stop", async () => {
+    const profile = testProfile();
+    const options = { home: profile.home, env: { MAYA_DIR: profile.mayaDir } };
+    const started = await runMayaCli([
+      "proc",
+      "start",
+      "trap '' TERM; while :; do sleep 1; done",
+      "--json",
+    ], options);
+    const output = started.parseEnvelope<{ data: { output: string } }>().data.output;
+    const id = output.match(/\[(p-[a-f0-9-]+)\]/)?.[1];
+    expect(id).toBeDefined();
+
+    try {
+      await Bun.sleep(100);
+      const stopped = await runMayaCli(["proc", "stop", id!], options);
+      expect(stopped.exitCode).toBe(1);
+      expect(stopped.stderr).toContain("still running after SIGTERM");
+      expect(stopped.stderr).toContain("--force");
+
+      const forced = await runMayaCli(["proc", "stop", id!, "--force"], options);
+      expect(forced.exitCode).toBe(0);
+      expect(forced.stdout).toBe(`Stopped ${id}.\n`);
+    } finally {
+      if (id) await runMayaCli(["proc", "stop", id, "--force"], options);
+    }
   });
 });
