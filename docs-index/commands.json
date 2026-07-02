@@ -114,9 +114,9 @@
     {
       "name": "maya find <query>",
       "category": "discovery",
-      "status": "planned",
+      "status": "implemented",
       "description": "Search curated file, tool, doc, and command indexes with bounded output.",
-      "filePath": null,
+      "filePath": "src/cli/find.ts",
       "relatedDocsPath": "docs/quick-find.md",
       "keywords": [
         "find",

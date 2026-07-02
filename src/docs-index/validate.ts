@@ -7,11 +7,18 @@ export interface RegisteredTool {
   dependencyGated: boolean;
 }
 
-interface CatalogEntry {
+export interface CatalogEntry {
   name: string;
+  category: string;
+  description: string;
   filePath?: string | null;
   relatedDocsPath?: string | null;
+  keywords: string[];
+  whenToUse: string;
   dependencyGated?: boolean;
+  relatedMcpTool?: string | null;
+  futureCliCommand?: string | null;
+  mcpTool?: string | null;
 }
 
 const CommonEntrySchema = z.object({

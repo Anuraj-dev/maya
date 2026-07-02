@@ -1,5 +1,6 @@
 import { buildCapabilities, renderCapabilitiesText } from "./capabilities.ts";
 import { runDoctor } from "./doctor.ts";
+import { runFindCommand } from "./find.ts";
 import { runLegacyCommand } from "./legacy.ts";
 import {
   MCP_ALIAS_DESCRIPTION,
@@ -151,5 +152,28 @@ export const COMMAND_SPECS: CommandSpec[] = [
         data: contract,
       };
     },
+  },
+  {
+    path: ["find"],
+    category: "discovery",
+    summary: "Search curated docs-index catalogs with bounded output.",
+    description: "Search indexed Maya files, tools, docs, and commands without crawling the source tree.",
+    args: [{ name: "query", required: true, variadic: true }],
+    options: [
+      {
+        long: "--type",
+        type: "string",
+        description: "Restrict results to file, tool, doc, or command.",
+      },
+      {
+        long: "--limit",
+        type: "string",
+        description: "Return at most this many results (default 10).",
+      },
+    ],
+    run: async ({ args, values }) => runFindCommand(args.join(" "), {
+      type: values.type,
+      limit: values.limit,
+    }),
   },
 ];

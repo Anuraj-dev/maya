@@ -31,11 +31,11 @@ bun -e 'const x=await Bun.file("docs-index/files.json").json(); console.log(x.fi
 bun -e 'const x=await Bun.file("docs-index/commands.json").json(); console.log(x.commands.filter((v)=>v.status==="planned"))'
 ```
 
-## Search rules for future `maya find`
+## Search rules for `maya find`
 
-The initial implementation should search normalized lowercase values across `name`, `category`,
-`description`, `path`, `mcpTool`, `futureCliCommand`, and `keywords`. Results should identify their
-type, exact name, source path, and one-line reason for use.
+`maya find` searches normalized lowercase values across `name`, `category`, `description`, `path`,
+`mcpTool`, `futureCliCommand`, and `keywords`. Results identify their type, exact name, source
+path, and one-line reason for use.
 
 Recommended initial behavior:
 
