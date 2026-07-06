@@ -18,21 +18,21 @@ function levenshtein(a: string, b: string): number {
   const cols = b.length + 1;
   const table = Array.from({ length: rows }, () => Array<number>(cols).fill(0));
 
-  for (let i = 0; i < rows; i += 1) table[i][0] = i;
-  for (let j = 0; j < cols; j += 1) table[0][j] = j;
+  for (let i = 0; i < rows; i += 1) table[i]![0] = i;
+  for (let j = 0; j < cols; j += 1) table[0]![j] = j;
 
   for (let i = 1; i < rows; i += 1) {
     for (let j = 1; j < cols; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      table[i][j] = Math.min(
-        table[i - 1][j] + 1,
-        table[i][j - 1] + 1,
-        table[i - 1][j - 1] + cost,
+      table[i]![j] = Math.min(
+        table[i - 1]![j]! + 1,
+        table[i]![j - 1]! + 1,
+        table[i - 1]![j - 1]! + cost,
       );
     }
   }
 
-  return table[a.length][b.length];
+  return table[a.length]![b.length]!;
 }
 
 export function suggestCommand(input: string, specs: CommandSpec[]): string | undefined {

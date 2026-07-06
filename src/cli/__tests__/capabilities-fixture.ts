@@ -159,10 +159,15 @@ export const EXPECTED_CAPABILITIES = {
     {
       name: "maya setup",
       category: "mcp",
-      summary: "Register Maya with supported coding-agent MCP clients.",
-      description: "Register Maya with Claude Code and/or Codex MCP client config.",
+      summary: "Install or refresh the Maya discovery skill for supported agents.",
+      description: "Install Maya's generated skill for Claude Code and/or Codex, with optional MCP registration.",
       args: [{ name: "client", required: false, variadic: false }],
-      options: [],
+      options: [{
+        long: "--with-mcp",
+        type: "boolean",
+        description: "Also register Maya's MCP server with the selected agent CLI.",
+        defaultValue: false,
+      }],
       supportsJson: true,
     },
     {

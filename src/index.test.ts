@@ -529,8 +529,8 @@ describe("S1 — CLI process boundary", () => {
       command: "setup",
       error: {
         code: "execution_failed",
-        message: 'Unknown client "invalid". Use: maya setup [claude|codex]',
-        details: { stderr: 'Unknown client "invalid". Use: maya setup [claude|codex]' },
+        message: 'Unknown client "invalid". Use: maya setup [claude|codex|all]',
+        details: { stderr: 'Unknown client "invalid". Use: maya setup [claude|codex|all]' },
       },
     });
   });

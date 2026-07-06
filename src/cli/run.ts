@@ -94,7 +94,7 @@ export async function runCli(argv: string[]): Promise<number> {
       values: parsed.values,
     });
     printSuccess(parsed, result);
-    return process.exitCode ?? 0;
+    return typeof process.exitCode === "number" ? process.exitCode : 0;
   } catch (error) {
     const cliError = coerceCliError(error);
     printError(command, cliError, json);

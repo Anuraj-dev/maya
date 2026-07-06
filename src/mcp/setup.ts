@@ -1,23 +1,29 @@
 /**
- * maya setup — register Maya as an MCP (stdio) server with the agent(s) that will be her brain.
- *
- * We DON'T hand-edit config files: ~/.claude.json holds the user's account/oauth data and
- * ~/.codex/config.toml holds project trust levels — rewriting either by hand is fragile and
- * risky. Instead we drive each agent's own `mcp add` CLI, which owns its config format:
- *
- *   Claude Code:  claude mcp add maya --scope user -- <bun> <entry> serve
- *   Codex:        codex  mcp add maya             -- <bun> <entry> serve
- *
- * Idempotent: we `mcp remove` (ignoring "not found") before adding, so re-running updates the
- * launch command in place. Registers with every supported CLI found, or just the one named:
- *   maya setup            → all detected (claude, codex)
- *   maya setup claude     → Claude Code only
- *   maya setup codex      → Codex only
+ * maya setup — install the generated Maya skill for supported agents, with optional MCP fallback
+ * registration through each agent's own CLI.
  */
 import { join } from "node:path";
 import { realpathSync } from "node:fs";
+import { installSkill, type SkillClient } from "../skill/install.ts";
 
-type Client = "claude" | "codex";
+type Client = SkillClient;
+type SetupClient = Client | "all";
+
+interface SetupOptions {
+  withMcp?: boolean;
+  rootDir?: string;
+}
+
+function parseClient(client?: string): SetupClient | undefined {
+  if (!client) return undefined;
+  if (client === "claude" || client === "codex" || client === "all") return client;
+  return undefined;
+}
+
+function skillTargets(client?: SetupClient): Client[] {
+  if (!client || client === "all") return ["claude", "codex"];
+  return [client];
+}
 
 /** The exact command an agent should run to launch Maya's MCP server. */
 function mayaLaunchCommand(): string[] {
@@ -51,15 +57,10 @@ async function registerCodex(launch: string[]): Promise<{ ok: boolean; out: stri
   return run(["codex", "mcp", "add", "maya", "--", ...launch]);
 }
 
-export async function setupMcp(client?: string): Promise<void> {
-  if (client && client !== "claude" && client !== "codex") {
-    console.error(`Unknown client "${client}". Use: maya setup [claude|codex]`);
-    process.exitCode = 1;
-    return;
-  }
-  const only = client as Client | undefined;
+async function registerMcp(client?: SetupClient): Promise<void> {
+  const only = client && client !== "all" ? client : undefined;
   const launch = mayaLaunchCommand();
-  console.log(`Maya MCP launch command:\n  ${launch.join(" ")}\n`);
+  console.log(`\nMaya MCP launch command:\n  ${launch.join(" ")}\n`);
 
   let attempted = false;
 
@@ -67,7 +68,7 @@ export async function setupMcp(client?: string): Promise<void> {
     if (await onPath("claude")) {
       attempted = true;
       const r = await registerClaude(launch);
-      console.log(r.ok ? "✓ Registered with Claude Code (user scope)." : `✗ Claude Code failed:\n${r.out}`);
+      console.log(r.ok ? "✓ Claude MCP: registered." : `✗ Claude MCP failed:\n${r.out}`);
     } else if (only === "claude") {
       console.error("✗ claude CLI not found on PATH.");
     }
@@ -77,17 +78,38 @@ export async function setupMcp(client?: string): Promise<void> {
     if (await onPath("codex")) {
       attempted = true;
       const r = await registerCodex(launch);
-      console.log(r.ok ? "✓ Registered with Codex." : `✗ Codex failed:\n${r.out}`);
+      console.log(r.ok ? "✓ Codex MCP: registered." : `✗ Codex MCP failed:\n${r.out}`);
     } else if (only === "codex") {
       console.error("✗ codex CLI not found on PATH.");
     }
   }
 
   if (!attempted) {
-    console.log("No supported agent CLI found (looked for: claude, codex). Install one, then re-run `maya setup`.");
+    console.log("No supported agent CLI found for MCP registration (looked for: claude, codex).");
     return;
   }
 
   console.log('\nRestart your agent, then try: "Maya, what am I looking at?"');
   console.log("(The agent should call Maya's `listen` tool to start the voice loop.)");
+}
+
+export async function setupMcp(client?: string, options: SetupOptions = {}): Promise<void> {
+  const parsed = parseClient(client);
+  if (client && !parsed) {
+    console.error(`Unknown client "${client}". Use: maya setup [claude|codex|all]`);
+    process.exitCode = 1;
+    return;
+  }
+
+  for (const target of skillTargets(parsed)) {
+    const result = installSkill(target, options.rootDir);
+    console.log(`✓ ${target} skill: ${result.status} ${result.path}`);
+  }
+
+  if (!options.withMcp) {
+    console.log("\nRestart the agent so it can pick up the refreshed Maya skill.");
+    return;
+  }
+
+  await registerMcp(parsed);
 }

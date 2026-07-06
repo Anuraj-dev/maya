@@ -132,12 +132,18 @@ export const COMMAND_SPECS: CommandSpec[] = [
   {
     path: ["setup"],
     category: "mcp",
-    summary: "Register Maya with supported coding-agent MCP clients.",
-    description: "Register Maya with Claude Code and/or Codex MCP client config.",
+    summary: "Install or refresh the Maya discovery skill for supported agents.",
+    description: "Install Maya's generated skill for Claude Code and/or Codex, with optional MCP registration.",
     args: [{ name: "client", required: false }],
-    run: async ({ json, args }) => {
+    options: [{
+      long: "--with-mcp",
+      type: "boolean",
+      description: "Also register Maya's MCP server with the selected agent CLI.",
+      defaultValue: false,
+    }],
+    run: async ({ json, args, values }) => {
       const { setupMcp } = await import("../mcp/setup.ts");
-      return runLegacyCommand(() => setupMcp(args[0]), json);
+      return runLegacyCommand(() => setupMcp(args[0], { withMcp: values.withMcp === true }), json);
     },
   },
   {

@@ -252,17 +252,20 @@
       "name": "maya setup [claude|codex]",
       "category": "mcp",
       "status": "implemented",
-      "description": "Register Maya with supported coding-agent MCP clients.",
+      "description": "Install or refresh Maya's generated agent skill; pass --with-mcp to also register the optional MCP server.",
       "filePath": "src/cli/specs.ts",
       "relatedDocsPath": "docs/mcp-server.md",
       "keywords": [
+        "skill",
+        "install",
         "mcp",
         "setup",
         "claude",
         "codex",
-        "register"
+        "register",
+        "with-mcp"
       ],
-      "whenToUse": "Use to install or refresh Maya's MCP registration."
+      "whenToUse": "Use to install or refresh Maya's generated agent skill, or add --with-mcp when an agent still needs MCP registration."
     },
     {
       "name": "maya start",

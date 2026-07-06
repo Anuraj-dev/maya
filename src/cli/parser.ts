@@ -133,7 +133,7 @@ function validatePositionals(spec: CommandSpec, positionals: string[]): void {
   let seenVariadic = false;
 
   for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
+    const arg = args[index]!;
     if (arg.variadic) {
       seenVariadic = true;
       if (arg.required !== false && positionals.length <= index) {

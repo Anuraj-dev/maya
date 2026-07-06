@@ -82,7 +82,7 @@ describe("S3 — generic tool dispatcher", () => {
   test("maya capabilities lists every registered tool as reachable through tool call", async () => {
     const result = await runMayaCli(["capabilities", "--json"], { entry: TOOL_FIXTURE_ENTRY });
     const payload = result.parseEnvelope<{
-      data: { tools: Array<{ name: string; command: string }> };
+      data: { tools: Array<{ name: string; description: string; command: string }> };
     }>();
 
     expect(result.exitCode).toBe(0);

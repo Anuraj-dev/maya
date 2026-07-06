@@ -201,7 +201,7 @@ function skillCheck(agent: "claude" | "codex"): DoctorCheck {
     severity: "required",
     ok,
     summary: ok ? "Maya skill is installed." : "Maya skill is not installed.",
-    nextStep: ok ? undefined : `Run \`maya setup ${agent}\` after the skill-install setup lands, or install the Maya skill into ${skillPath}.`,
+    nextStep: ok ? undefined : `Run \`maya setup ${agent}\` to install the Maya skill into ${skillPath}.`,
     details: {
       agent,
       skillPath,
