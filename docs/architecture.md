@@ -126,11 +126,13 @@ process logs, screenshots, memory, sockets, and PID data live below `MAYA_DIR`.
 `runTool` (see Tool architecture above) owns auditing, payment confirmation, catastrophic-shell
 confirmation, and undo snapshotting across both adapters. The MCP adapter additionally handles
 retention startup, undo *exposure* as a transport-local tool, and MCP error-format conversion.
-Discovery commands (`find`, `tool list`, `docs query`) are read-only and bypass `runTool`; they
-must not initialize Playwright, TTS, reminders, or the process manager.
+Discovery commands (`find`, `tool list`, `docs query`, `docs index --check`, and `files map`) are
+read-only and bypass `runTool`. They must not initialize Playwright, TTS, reminders, or the process
+manager. Curated `browser` actions use `runTool` inside a same-user Unix-socket worker, which owns the
+persistent Playwright context across one-shot CLI processes and exits after an idle timeout.
 
-**Current gap:** `src/mcp/server.ts` still owns some of these policies inline. Migration to
-`runTool` is in progress; the wrapper test suite (seam S2) enforces parity.
+The current MCP call handler already delegates execution to `runTool`; remaining work is to keep
+that shared path intact while adding future adapters and to cover the boundary with regression tests.
 
 ## Do not refactor yet
 

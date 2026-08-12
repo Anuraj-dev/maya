@@ -76,6 +76,16 @@ describe("docs-index validation", () => {
     );
   });
 
+  test("registered CLI commands must exist and be marked implemented", () => {
+    const root = fixture();
+    expect(() => validateDocsIndex(root, [], ["missing"])).toThrow(
+      "commands.json is missing registered command: missing",
+    );
+    expect(() => validateDocsIndex(root, [], ["commands-entry"])).toThrow(
+      "commands.json marks registered command as planned: commands-entry",
+    );
+  });
+
   test("catalog entries must use deterministic name ordering", () => {
     const commands = [
       { ...VALID_INDEX_ENTRIES.commands[0]!, name: "zeta" },

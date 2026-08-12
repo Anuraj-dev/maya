@@ -37,6 +37,39 @@
       "whenToUse": "Open before exposing side-effecting tool execution through another adapter."
     },
     {
+      "name": "Browser CLI adapter",
+      "category": "cli",
+      "description": "Curated browser command specs and typed mapping to shared browser tools.",
+      "filePath": "src/cli/browser.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "relatedMcpTool": "browser_*",
+      "futureCliCommand": "maya browser ...",
+      "keywords": [
+        "browser",
+        "cli",
+        "command",
+        "selector"
+      ],
+      "whenToUse": "Open when changing curated browser command syntax or tool input mapping."
+    },
+    {
+      "name": "Browser CLI worker",
+      "category": "runtime",
+      "description": "Same-user Unix-socket worker preserving one Playwright context across CLI calls.",
+      "filePath": "src/cli/browser-worker.ts",
+      "relatedDocsPath": "docs/architecture.md",
+      "relatedMcpTool": null,
+      "futureCliCommand": "maya browser ...",
+      "keywords": [
+        "browser",
+        "worker",
+        "socket",
+        "lifecycle",
+        "runTool"
+      ],
+      "whenToUse": "Open when debugging browser CLI lifecycle, transport, idle shutdown, or safety routing."
+    },
+    {
       "name": "Browser tools",
       "category": "tool",
       "description": "Persistent Playwright browser control, form filling, DOM fallback, and page screenshots.",
@@ -55,6 +88,23 @@
       "whenToUse": "Open for browser navigation, interaction, forms, or page screenshot behavior."
     },
     {
+      "name": "CLI docs commands",
+      "category": "cli",
+      "description": "Bounded Markdown query plus docs-index validation and canonical regeneration.",
+      "filePath": "src/cli/docs.ts",
+      "relatedDocsPath": "docs/quick-find.md",
+      "relatedMcpTool": null,
+      "futureCliCommand": "maya docs query",
+      "keywords": [
+        "cli",
+        "docs",
+        "query",
+        "index",
+        "validate"
+      ],
+      "whenToUse": "Open when changing documentation search or docs-index maintenance commands."
+    },
+    {
       "name": "CLI entrypoint",
       "category": "entrypoint",
       "description": "CLI entrypoint delegating into the declarative command registry.",
@@ -70,6 +120,22 @@
         "registry"
       ],
       "whenToUse": "Open when adding or tracing a Maya command."
+    },
+    {
+      "name": "CLI file map",
+      "category": "cli",
+      "description": "Deterministic filtered view over the curated repository file catalog.",
+      "filePath": "src/cli/files.ts",
+      "relatedDocsPath": "docs/file-map.md",
+      "relatedMcpTool": null,
+      "futureCliCommand": "maya files map",
+      "keywords": [
+        "cli",
+        "files",
+        "map",
+        "discovery"
+      ],
+      "whenToUse": "Open when changing the curated files map output or filtering."
     },
     {
       "name": "CLI tool dispatcher",

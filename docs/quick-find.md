@@ -49,7 +49,7 @@ Recommended initial behavior:
 
 ## Maintenance
 
-Indexes are hand-maintained in this first cycle. A future `maya docs index` may derive parts of the
-tool index from `ToolSpec`, but generated output must preserve curated fields such as usage guidance,
-related docs, keywords, and future command mappings. `maya docs index --check` should fail when an
-indexed path is missing, JSON is invalid, duplicate names exist, or a registered tool is absent.
+Indexes remain curated. `maya docs index` validates and canonically rewrites them without discarding
+usage guidance, related docs, keywords, or command mappings. `maya docs index --check` fails when an
+indexed path is missing, JSON is invalid, duplicate names exist, entries are unsorted, or a registered
+tool is absent.

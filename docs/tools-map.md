@@ -13,14 +13,14 @@ while `maya tool list` and `maya tool describe` provide progressive discovery.
 Source: `src/tools/browser.ts`. Runtime: one persistent Playwright Chromium context using the configured
 profile directory.
 
-| Tool | Purpose | Future CLI direction |
+| Tool | Purpose | CLI direction |
 |---|---|---|
-| `browser_navigate` | Navigate and return title plus ARIA snapshot | `maya browser navigate` (future) |
-| `browser_read` | Read current page as an ARIA snapshot | `maya browser read` (future) |
-| `browser_click` | Click by visible/accessibility text | `maya browser click` (future) |
-| `browser_click_selector` | Click a CSS selector | `maya browser click` (future advanced option) |
-| `browser_type` | Fill a field by label/placeholder/ARIA name | `maya browser type` (future) |
-| `browser_type_selector` | Fill a selector, including contenteditable | `maya browser type` (future advanced option) |
+| `browser_navigate` | Navigate and return title plus ARIA snapshot | `maya browser navigate` |
+| `browser_read` | Read current page as an ARIA snapshot | `maya browser read` |
+| `browser_click` | Click by visible/accessibility text | `maya browser click` |
+| `browser_click_selector` | Click a CSS selector | `maya browser click --selector` |
+| `browser_type` | Fill a field by label/placeholder/ARIA name | `maya browser type --field` |
+| `browser_type_selector` | Fill a selector, including contenteditable | `maya browser type --selector` |
 | `browser_press_key` | Press a browser key | `maya browser key` (future) |
 | `browser_eval` | Evaluate JavaScript in the current page | deferred high-risk command |
 | `browser_scroll` | Scroll page or selected container | `maya browser scroll` (future) |
@@ -48,8 +48,8 @@ construct the same manager and execute the same tools through `runTool`.
 | `file_delete` | `src/tools/file.ts` | Move one file into Maya trash |
 | `app_open` | `src/tools/app.ts` | Launch known desktop apps or use `xdg-open` |
 
-Typed directory listing, tree, and file finding do not exist yet. The planned `maya files map` should
-read `docs-index/files.json`; it is not a wrapper around an existing MCP tool.
+`maya files map [query]` reads `docs-index/files.json` for a deterministic curated repository map; it
+is not a wrapper around an existing MCP tool.
 
 ## Sensing
 

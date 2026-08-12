@@ -1,5 +1,8 @@
 import { buildCapabilities, renderCapabilitiesText } from "./capabilities.ts";
+import { BROWSER_COMMAND_SPECS } from "./browser.ts";
 import { runDoctor } from "./doctor.ts";
+import { DOC_COMMAND_SPECS } from "./docs.ts";
+import { FILE_COMMAND_SPECS } from "./files.ts";
 import { runFindCommand } from "./find.ts";
 import { runLegacyCommand } from "./legacy.ts";
 import {
@@ -27,8 +30,11 @@ const providerOption = {
 };
 
 export const COMMAND_SPECS: CommandSpec[] = [
+  ...BROWSER_COMMAND_SPECS,
   ...TERMINAL_COMMAND_SPECS,
   ...TOOL_COMMAND_SPECS,
+  ...DOC_COMMAND_SPECS,
+  ...FILE_COMMAND_SPECS,
   {
     path: ["doctor"],
     category: "diagnostic",

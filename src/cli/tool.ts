@@ -33,7 +33,7 @@ function parseToolInput(value: string | undefined): Record<string, unknown> {
   }
 }
 
-async function readPngDimensions(path: string): Promise<{ width: number; height: number } | null> {
+export async function readPngDimensions(path: string): Promise<{ width: number; height: number } | null> {
   const file = Bun.file(path);
   if (!(await file.exists())) return null;
   const bytes = new Uint8Array(await file.slice(0, 24).arrayBuffer());

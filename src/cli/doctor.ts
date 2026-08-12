@@ -153,11 +153,24 @@ function docsIndexRoot(): string {
   return process.env.MAYA_DOCTOR_DOCS_ROOT || DEFAULT_DOCS_INDEX_ROOT;
 }
 
-function checkDocsIndex(checks: DoctorCheck[]): void {
+async function checkDocsIndex(checks: DoctorCheck[]): Promise<void> {
   const root = docsIndexRoot();
 
   try {
-    const index = validateDocsIndex(root, []);
+    let registeredTools: Array<{ name: string; dependencyGated: boolean }> = [];
+    let registeredCommands: string[] = [];
+    if (process.env.MAYA_DOCTOR_DOCS_ROOT === undefined) {
+      const [{ listCliToolSpecs }, { COMMAND_SPECS }] = await Promise.all([
+        import("./tool.ts"),
+        import("./specs.ts"),
+      ]);
+      registeredTools = (await listCliToolSpecs()).map((tool) => ({
+        name: tool.name,
+        dependencyGated: false,
+      }));
+      registeredCommands = COMMAND_SPECS.map((spec) => spec.path.join(" "));
+    }
+    const index = validateDocsIndex(root, registeredTools, registeredCommands);
     pushCheck(checks, {
       id: "docs-index",
       label: "Docs index",
@@ -229,7 +242,15 @@ async function playwrightHealth(): Promise<
 > {
   try {
     const { chromium } = await import("playwright");
-    const executablePath = process.env.MAYA_DOCTOR_PLAYWRIGHT_EXECUTABLE || chromium.executablePath();
+    const explicit = process.env.MAYA_DOCTOR_PLAYWRIGHT_EXECUTABLE;
+    const bundled = explicit || chromium.executablePath();
+    const executablePath = explicit
+      ? explicit
+      : existsSync(bundled)
+        ? bundled
+        : await Bun.which("google-chrome-stable")
+          ?? await Bun.which("google-chrome")
+          ?? (existsSync("/opt/google/chrome/chrome") ? "/opt/google/chrome/chrome" : bundled);
     return existsSync(executablePath)
       ? { kind: "ok", executablePath }
       : { kind: "browser-missing", executablePath };
@@ -247,11 +268,13 @@ async function checkOptionalCapabilities(checks: DoctorCheck[]): Promise<void> {
     ok: playwright.kind === "ok",
     summary:
       playwright.kind === "ok"
-        ? "Playwright module and Chromium executable are available."
+        ? "Playwright module and a compatible Chrome executable are available."
         : playwright.kind === "browser-missing"
           ? "Playwright module is available, but the Chromium executable is missing."
           : "Playwright module is missing.",
-    nextStep: playwright.kind === "ok" ? undefined : "Run `bun install` and `bunx playwright install chromium`.",
+    nextStep: playwright.kind === "ok"
+      ? undefined
+      : "Install Google Chrome or run `bun install` and `bunx playwright install chromium`.",
     details:
       playwright.kind === "module-missing"
         ? { executablePath: null }
@@ -349,7 +372,7 @@ export async function runDoctor(): Promise<CommandResult> {
   await checkPackageJson(checks);
   checkCliEntry(checks);
   await checkConfig(checks);
-  checkDocsIndex(checks);
+  await checkDocsIndex(checks);
   pushCheck(checks, skillCheck("claude"));
   pushCheck(checks, skillCheck("codex"));
   await checkOptionalCapabilities(checks);
