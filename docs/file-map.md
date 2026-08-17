@@ -20,6 +20,10 @@ Use this map before searching the full repository.
 |---|---|
 | `src/tools/index.ts` | Shared `MayaTool` contract and registry assembly |
 | `src/tools/browser.ts` | Playwright browser lifecycle, forms, page screenshot |
+| `src/cli/browser.ts` | Curated browser command specs and typed argument mapping |
+| `src/cli/browser-worker.ts` | Same-user persistent browser worker transport and lifecycle |
+| `src/cli/docs.ts` | Bounded documentation query and docs-index validation/regeneration |
+| `src/cli/files.ts` | Curated repository file map command |
 | `src/tools/shell.ts` | Bounded one-shot shell execution |
 | `src/tools/process.ts` | Agent-facing managed process tools |
 | `src/system/processes.ts` | Managed process implementation and logs |

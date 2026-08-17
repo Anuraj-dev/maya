@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import type { Config } from "../config/index.ts";
 import type { MayaTool } from "./index.ts";
@@ -18,10 +20,15 @@ let page: Page | null = null;
 
 async function getPage(config: Config): Promise<Page> {
   if (ctx && page && !page.isClosed()) return page;
+  const bundled = chromium.executablePath();
+  const systemChrome = await Bun.which("google-chrome-stable")
+    ?? await Bun.which("google-chrome")
+    ?? (existsSync("/opt/google/chrome/chrome") ? "/opt/google/chrome/chrome" : null);
   ctx = await chromium.launchPersistentContext(config.browser.profileDir, {
     headless: config.browser.headless,
     viewport: null, // use the real window size — avoids WhatsApp/Gmail layout breakage
     args: ["--window-size=1440,900"],
+    executablePath: existsSync(bundled) ? undefined : systemChrome ?? undefined,
   });
   page = ctx.pages()[0] ?? (await ctx.newPage());
   return page;
@@ -316,11 +323,19 @@ export function browserTools(config: Config): Record<string, MayaTool> {
       spec: {
         name: "browser_screenshot",
         description: "Capture a screenshot of the current page so you can SEE it. The image is returned to you directly.",
-        inputSchema: { type: "object", properties: {} },
+        inputSchema: {
+          type: "object",
+          properties: {
+            out: { type: "string", description: "Optional PNG output path. Defaults to /tmp." },
+          },
+        },
       },
-      execute: async () => {
+      execute: async (input) => {
         const p = await getPage(config);
-        const path = `/tmp/maya-shot-${Date.now()}.png`;
+        const path = typeof input.out === "string" && input.out.trim()
+          ? input.out
+          : `/tmp/maya-shot-${Date.now()}.png`;
+        mkdirSync(dirname(path), { recursive: true });
         await p.screenshot({ path, fullPage: false });
         // Bare path: the MCP server reads it back as an image content block (returnsImage).
         return path;

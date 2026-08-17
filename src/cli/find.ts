@@ -1,4 +1,5 @@
 import { validateDocsIndex } from "../docs-index/validate.ts";
+import { docsIndexRoot } from "./docs-root.ts";
 import { invalidUsage } from "./errors.ts";
 import type { CommandResult } from "./types.ts";
 
@@ -231,7 +232,7 @@ export async function runFindCommand(
 ): Promise<CommandResult> {
   const type = parseType(options.type);
   const limit = parseLimit(options.limit);
-  const rootDir = process.env.MAYA_DOCS_INDEX_ROOT ?? process.cwd();
+  const rootDir = docsIndexRoot();
   const entries = buildFindEntries(rootDir);
   const { results, total, truncated } = searchEntries(entries, query, type, limit);
 

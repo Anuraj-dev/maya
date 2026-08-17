@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Existing and planned Maya CLI commands. Planned entries are not implemented.",
+  "description": "Canonical Maya CLI commands with implementation status and discovery guidance.",
   "commands": [
     {
       "name": "maya ask <command...>",
@@ -18,11 +18,56 @@
       "whenToUse": "Use for the legacy in-process brain path."
     },
     {
+      "name": "maya browser click <text...>",
+      "category": "action",
+      "status": "implemented",
+      "description": "Click the shared Playwright page by text, accessible role, or CSS selector.",
+      "filePath": "src/cli/browser.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": [
+        "browser",
+        "click",
+        "selector",
+        "action"
+      ],
+      "whenToUse": "Use for a focused click after navigating or reading the shared browser page."
+    },
+    {
+      "name": "maya browser navigate <url>",
+      "category": "action",
+      "status": "implemented",
+      "description": "Navigate the shared Playwright page and return its title and ARIA snapshot.",
+      "filePath": "src/cli/browser.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": [
+        "browser",
+        "navigate",
+        "url",
+        "action"
+      ],
+      "whenToUse": "Use to open a URL in Maya's shared persistent browser context."
+    },
+    {
+      "name": "maya browser read",
+      "category": "action",
+      "status": "implemented",
+      "description": "Read the shared Playwright page as a bounded ARIA snapshot.",
+      "filePath": "src/cli/browser.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": [
+        "browser",
+        "read",
+        "aria",
+        "action"
+      ],
+      "whenToUse": "Use to inspect the current shared browser page without a screenshot."
+    },
+    {
       "name": "maya browser screenshot --out <path>",
       "category": "action",
-      "status": "planned",
-      "description": "Capture the shared Playwright page through a CLI adapter.",
-      "filePath": null,
+      "status": "implemented",
+      "description": "Capture the shared Playwright page to a requested PNG path.",
+      "filePath": "src/cli/browser.ts",
       "relatedDocsPath": "docs/cli-vision.md",
       "keywords": [
         "browser",
@@ -30,7 +75,23 @@
         "image",
         "action"
       ],
-      "whenToUse": "Use for a focused browser capture after browser lifecycle/output reuse is implemented."
+      "whenToUse": "Use for a focused browser capture; JSON output includes path and dimensions."
+    },
+    {
+      "name": "maya browser type <text...>",
+      "category": "action",
+      "status": "implemented",
+      "description": "Type into a browser field or CSS selector and optionally submit.",
+      "filePath": "src/cli/browser.ts",
+      "relatedDocsPath": "docs/cli-vision.md",
+      "keywords": [
+        "browser",
+        "type",
+        "field",
+        "selector",
+        "action"
+      ],
+      "whenToUse": "Use with --field or --selector to enter text into the shared browser page."
     },
     {
       "name": "maya capabilities",
@@ -51,9 +112,9 @@
     {
       "name": "maya docs index [--check]",
       "category": "discovery",
-      "status": "planned",
+      "status": "implemented",
       "description": "Regenerate or validate the local docs indexes deterministically.",
-      "filePath": null,
+      "filePath": "src/cli/docs.ts",
       "relatedDocsPath": "docs/quick-find.md",
       "keywords": [
         "docs",
@@ -67,9 +128,9 @@
     {
       "name": "maya docs query <query>",
       "category": "discovery",
-      "status": "planned",
+      "status": "implemented",
       "description": "Search indexed Maya documentation and return focused matches.",
-      "filePath": null,
+      "filePath": "src/cli/docs.ts",
       "relatedDocsPath": "docs/quick-find.md",
       "keywords": [
         "docs",
@@ -99,9 +160,9 @@
     {
       "name": "maya files map [query]",
       "category": "discovery",
-      "status": "planned",
+      "status": "implemented",
       "description": "List important repository files and responsibilities from the curated index.",
-      "filePath": null,
+      "filePath": "src/cli/files.ts",
       "relatedDocsPath": "docs/file-map.md",
       "keywords": [
         "files",
@@ -236,9 +297,9 @@
     {
       "name": "maya serve",
       "category": "mcp",
-      "status": "planned",
-      "description": "Provide a clear agent-oriented MCP server launch command while preserving maya mcp compatibility.",
-      "filePath": null,
+      "status": "implemented",
+      "description": "Start the optional MCP stdio server while preserving maya mcp compatibility.",
+      "filePath": "src/cli/specs.ts",
       "relatedDocsPath": "docs/cli-vision.md",
       "keywords": [
         "serve",
@@ -246,7 +307,7 @@
         "stdio",
         "server"
       ],
-      "whenToUse": "Use to launch Maya's MCP server after alias/compatibility design is settled."
+      "whenToUse": "Use to launch Maya's optional MCP server; maya mcp remains a compatibility alias."
     },
     {
       "name": "maya setup [claude|codex]",

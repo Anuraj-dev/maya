@@ -19,3 +19,12 @@ Why: avoid always-loaded context; let agents discover capabilities on demand. Se
 
 ## 2026-07-06 — Bun runtime, no build step for the main app (inferred at adoption)
 Why: run TS directly for fast iteration; only the separate `overlay/` Electron package has a Vite build.
+
+## 2026-07-06 — Agent discovery skill is the default path; MCP is opt-in fallback (ADR 0004 implemented)
+**Why:** MCP-registered servers auto-load all 30+ tool schemas + persona instructions into every agent session, paying the context cost even when Maya is never used. A generated `maya` skill (thin 1-line description that only auto-activates when relevant, body generated from the command registry so it can't drift) gives CLI-native agents a near-zero-cost discovery path. `maya setup` now installs the skill by default and only registers MCP behind `--with-mcp`. Alternative rejected: keep auto-registering MCP (too heavy) / strip MCP entirely (breaks MCP-only agents — so it was refactored 213→114 lines but kept fully functional).
+
+## 2026-07-30 — Reconcile ADR-0004 and MCP execution status
+**Why:** The 2026-07-06 adoption snapshot still contains a stale “not yet implemented” note, while commit `3738296` implements the generated skill and `src/mcp/server.ts` routes tool calls through `runTool`. Future work is curated CLI coverage and IPC/state completion, not a duplicate MCP safety migration.
+
+## 2026-08-12 — Curated browser CLI uses a dedicated same-user worker
+**Why:** A Playwright context owned by a one-shot CLI process either closes after each action and loses page state or keeps the command from exiting. A mode-0600 Unix socket under `MAYA_DIR` gives browser commands one persistent context while retaining `runTool` safety/audit enforcement and an idle shutdown. Alternative rejected: route browser actions through the voice daemon, which would couple CLI availability to unrelated voice/overlay lifecycle work.

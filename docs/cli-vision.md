@@ -79,9 +79,11 @@ maya terminal run <command...>
 maya proc start|list|logs|stop
 ```
 
-Some listed discovery/browser commands remain planned; the generic `tool list/describe/call` dispatcher,
-`terminal run`, and `proc start/list/logs/stop` are implemented. `maya serve` is now the clear MCP
-launcher, while `maya mcp` remains a compatibility alias.
+The listed discovery and browser commands are implemented alongside the generic
+`tool list/describe/call` dispatcher, `terminal run`, and `proc start/list/logs/stop`. Curated browser
+commands share a same-user Unix-socket worker so separate CLI invocations retain one Playwright page;
+all actions still execute through `runTool`. `maya serve` is the clear MCP launcher, while `maya mcp`
+remains a compatibility alias.
 
 ## Output sketch
 
@@ -105,7 +107,6 @@ schemas unless the agent explicitly requests a description or JSON.
 
 ## Deferred
 
-- Full CLI implementation in this documentation cycle.
 - Bulk extraction of a new core directory.
 - Interactive TUI or shell completion.
 - Remote index service, embeddings, or vector database.

@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { EXPECTED_CAPABILITIES } from "./cli/__tests__/capabilities-fixture.ts";
 import type { CapabilitiesContract } from "./cli/capabilities.ts";
 import { runMayaCli } from "./cli/__tests__/process.ts";
 import { createDocsIndexFixture, VALID_INDEX_ENTRIES } from "./docs-index/__tests__/fixture.ts";
+
+const BROWSER_WORKER_FIXTURE = join(import.meta.dir, "cli/__tests__/browser-worker-fixture.ts");
 
 function createDoctorHome(options: {
   config?: string;
@@ -143,6 +145,68 @@ describe("S1 — CLI process boundary", () => {
     expect(result.stdout).toContain("maya terminal run");
     expect(result.stdout).not.toContain("maya proc start");
     expect(result.stderr).toBe("");
+  });
+
+  test("maya browser --help lists the five curated commands without starting a worker", async () => {
+    const result = await runMayaCli(["browser", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("maya browser navigate");
+    expect(result.stdout).toContain("maya browser click");
+    expect(result.stdout).toContain("maya browser read");
+    expect(result.stdout).toContain("maya browser type");
+    expect(result.stdout).toContain("maya browser screenshot");
+    expect(result.stderr).toBe("");
+  });
+
+  test("curated browser navigation crosses the process boundary through the worker", async () => {
+    const home = mkdtempSync(join(tmpdir(), "maya-browser-cli-test-"));
+    const mayaDir = join(home, ".config", "maya");
+    try {
+      const result = await runMayaCli(["browser", "navigate", "https://example.com", "--json"], {
+        home,
+        env: { MAYA_DIR: mayaDir, MAYA_BROWSER_WORKER_ENTRY: BROWSER_WORKER_FIXTURE },
+      });
+      const request = JSON.parse(readFileSync(join(mayaDir, "browser-request.json"), "utf8"));
+
+      expect(result.exitCode).toBe(0);
+      expect(result.parseEnvelope()).toEqual({
+        ok: true,
+        version: "1",
+        command: "browser navigate",
+        data: { output: "fixture:browser_navigate" },
+      });
+      expect(request).toEqual({ tool: "browser_navigate", input: { url: "https://example.com" } });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("curated browser screenshot reports the written PNG path and dimensions", async () => {
+    const home = mkdtempSync(join(tmpdir(), "maya-browser-cli-test-"));
+    const mayaDir = join(home, ".config", "maya");
+    const output = join(home, "capture.png");
+    try {
+      const result = await runMayaCli(["browser", "screenshot", "--out", output, "--json"], {
+        home,
+        env: { MAYA_DIR: mayaDir, MAYA_BROWSER_WORKER_ENTRY: BROWSER_WORKER_FIXTURE },
+      });
+      const payload = result.parseEnvelope<{ data: { path: string; width: number; height: number } }>();
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.data).toEqual({ path: output, width: 3, height: 2 });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test("curated browser usage errors fail before a worker is started", async () => {
+    const result = await runMayaCli(["browser", "click", "--json"]);
+    const payload = result.parseEnvelope<{ error: { code: string; message: string } }>();
+
+    expect(result.exitCode).toBe(2);
+    expect(payload.error.code).toBe("invalid_usage");
+    expect(payload.error.message).toBe("Provide click text or --selector.");
   });
 
   test("maya serve --help exposes the demoted optional MCP launcher", async () => {
@@ -726,6 +790,84 @@ describe("S7 — docs-index find command", () => {
       expect(secondJson.exitCode).toBe(0);
       expect(secondText.stdout).toBe(firstText.stdout);
       expect(secondJson.stdout).toBe(firstJson.stdout);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("docs query returns deterministic bounded Markdown line matches", async () => {
+    const fixture = createFindFixture();
+    try {
+      writeFileSync(join(fixture.root, "docs", "alpha-guide.md"), [
+        "# Alpha guide",
+        "Alpha first match.",
+        "Alpha second match.",
+      ].join("\n"));
+      const result = await runMayaCli(["docs", "query", "alpha", "--limit", "2", "--json"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const payload = result.parseEnvelope<{
+        data: { total: number; truncated: boolean; results: Array<{ path: string; line: number }> };
+      }>();
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.data.total).toBe(3);
+      expect(payload.data.truncated).toBe(true);
+      expect(payload.data.results).toEqual([
+        { path: "docs/alpha-guide.md", line: 1, text: "# Alpha guide" },
+        { path: "docs/alpha-guide.md", line: 2, text: "Alpha first match." },
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("docs index --check reports catalog validation failures without writing", async () => {
+    const fixture = createDocsIndexFixture({
+      commands: [{ ...VALID_INDEX_ENTRIES.commands[0]!, relatedDocsPath: "missing.md" }],
+    });
+    try {
+      const result = await runMayaCli(["docs", "index", "--check", "--json"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const payload = result.parseEnvelope<{ error: { code: string; message: string } }>();
+
+      expect(result.exitCode).toBe(1);
+      expect(payload.error.code).toBe("execution_failed");
+      expect(payload.error.message).toContain("references missing path: missing.md");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("docs index regeneration preserves curated guidance and writes canonical JSON", async () => {
+    const fixture = createDocsIndexFixture();
+    try {
+      const result = await runMayaCli(["docs", "index", "--json"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const commandsPath = join(fixture.root, "docs-index", "commands.json");
+      const raw = readFileSync(commandsPath, "utf8");
+      const commands = JSON.parse(raw) as { commands: Array<{ whenToUse: string }> };
+
+      expect(result.exitCode).toBe(0);
+      expect(raw.endsWith("\n")).toBe(true);
+      expect(commands.commands[0]?.whenToUse).toBe("Use in tests.");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("files map filters the curated file catalog without scanning source", async () => {
+    const fixture = createFindFixture();
+    try {
+      const result = await runMayaCli(["files", "map", "alpha", "--json"], {
+        env: { MAYA_DOCS_INDEX_ROOT: fixture.root },
+      });
+      const payload = result.parseEnvelope<{ data: { files: Array<{ path: string }> } }>();
+
+      expect(result.exitCode).toBe(0);
+      expect(payload.data.files.map((entry) => entry.path)).toEqual(["src/alpha-helper.ts"]);
     } finally {
       fixture.cleanup();
     }

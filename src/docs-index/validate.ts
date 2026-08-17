@@ -19,6 +19,7 @@ export interface CatalogEntry {
   relatedMcpTool?: string | null;
   futureCliCommand?: string | null;
   mcpTool?: string | null;
+  status?: "implemented" | "planned";
 }
 
 const CommonEntrySchema = z.object({
@@ -114,7 +115,19 @@ function assertPaths(rootDir: string, entries: CatalogEntry[]): void {
   }
 }
 
-export function validateDocsIndex(rootDir: string, registeredTools: RegisteredTool[]): DocsIndex {
+function catalogCommandPath(name: string): string {
+  return name
+    .replace(/^maya\s+/, "")
+    .split(/\s+/)
+    .filter((token) => !token.startsWith("<") && !token.startsWith("[") && !token.startsWith("-"))
+    .join(" ");
+}
+
+export function validateDocsIndex(
+  rootDir: string,
+  registeredTools: RegisteredTool[],
+  registeredCommands: string[] = [],
+): DocsIndex {
   const fileCatalog = readCatalog(rootDir, "files");
   const toolCatalog = readCatalog(rootDir, "tools");
   const commandCatalog = readCatalog(rootDir, "commands");
@@ -140,6 +153,15 @@ export function validateDocsIndex(rootDir: string, registeredTools: RegisteredTo
     if (!indexed) throw new Error(`tools.json is missing registered tool: ${registered.name}`);
     if (Boolean(indexed.dependencyGated) !== registered.dependencyGated) {
       throw new Error(`tools.json has incorrect dependencyGated marker: ${registered.name}`);
+    }
+  }
+
+  const indexedCommands = new Map(commandCatalog.entries.map((entry) => [catalogCommandPath(entry.name), entry]));
+  for (const command of registeredCommands) {
+    const indexed = indexedCommands.get(command);
+    if (!indexed) throw new Error(`commands.json is missing registered command: ${command}`);
+    if (indexed.status !== "implemented") {
+      throw new Error(`commands.json marks registered command as planned: ${command}`);
     }
   }
 

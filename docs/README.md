@@ -28,6 +28,7 @@ the behavioral source of truth and update the indexes when a tool, command, or m
 
 ## Current boundary
 
-This documentation cycle does not add the planned CLI commands, extract a core layer, or change MCP
-behavior. Existing CLI commands remain `start`, `stop`, `status`, `live`, `ping`, `ask`, `serve`,
-`mcp`, and `setup`.
+The CLI-first surface includes the declarative registry, generic tool dispatcher, terminal/process
+commands, `serve`, `doctor`, `find`, `docs query`, `docs index`, `files map`, curated browser commands,
+and the generated agent discovery skill. MCP remains an opt-in compatibility path; voice/state/IPC
+roadmap work is tracked separately from the completed canonical CLI surface.
