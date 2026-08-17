@@ -107,7 +107,6 @@ export async function runDocsIndex(checkOnly: boolean): Promise<CommandResult> {
       for (const entry of pending) renameSync(entry.temporaryPath, entry.path);
       changed = pending.length > 0;
     }
-    }
     const counts = Object.fromEntries(names.map((name) => [name, index[name].length]));
     return {
       text: checkOnly
