@@ -131,3 +131,7 @@ Maya reads `$MAYA_DIR/config.json`, which defaults to `~/.config/maya/config.jso
 - [Architecture decisions](docs/adr/).
 - [Original PRD](PRD.md).
 - [AGENTS.md](AGENTS.md): the entry point for coding agents working in this repository.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
